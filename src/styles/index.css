@@ -49,9 +49,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background: var(--main-bg);
-  font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Monaco, monospace;
+  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, Monaco, monospace;
   color: var(--text-primary);
   font-size: var(--font-size-base);
+  overscroll-behavior: none;
 }
 
 /* ─── Scrollbar ─── */

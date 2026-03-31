@@ -2,9 +2,16 @@
 
 .app-shell {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: var(--main-bg);
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 .workspace {

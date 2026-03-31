@@ -58,7 +58,9 @@
   display: grid;
   place-items: center;
   border-radius: 4px;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .sidebar-collapsed-btn:hover {
@@ -100,7 +102,9 @@
   z-index: 101;
   border-radius: 0 4px 4px 0;
   opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
+  transition:
+    opacity 0.2s,
+    background 0.2s;
 }
 
 .sidebar-wrapper:hover .sidebar-minimize-btn {
@@ -151,7 +155,9 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
   font-size: 16px;
   line-height: 26px;
 }
@@ -169,6 +175,7 @@
   padding-top: 6px;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 .sidebar-empty {
@@ -202,7 +209,7 @@
   padding: 2px 6px;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   outline: none;
   min-width: 0;
 }
@@ -228,9 +235,9 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 3px 8px;
-  font-size: var(--font-size-sm);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  padding: 4px 8px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   text-align: left;
   transition: background 0.12s ease;
   white-space: nowrap;
@@ -274,8 +281,8 @@
 }
 
 .sidebar-chevron {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
   color: var(--text-muted);
@@ -283,8 +290,8 @@
 }
 
 .sidebar-node-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -295,8 +302,8 @@
 .sidebar-node-icon img {
   width: 100%;
   height: 100%;
-  max-width: 20px;
-  max-height: 20px;
+  max-width: 22px;
+  max-height: 22px;
 }
 
 .sidebar-node-label {
@@ -320,44 +327,6 @@
 
 /* ─── Upload Progress ─── */
 
-.upload-progress-bar {
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 36px;
-  background: #1a1a1a;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  gap: 12px;
-  z-index: 50;
-}
-
-.upload-progress-fill {
-  height: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-  min-width: 20px;
-}
-
-.upload-progress-text {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.upload-progress-bar.global-progress {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  border-top: 1px solid var(--border-color);
-  border-bottom: none;
-  background: #252525;
-}
-
 .upload-progress-bar.folder-progress {
   position: relative;
   height: 24px;
@@ -365,19 +334,74 @@
   border: none;
   padding: 0 8px;
   margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .upload-progress-bar.folder-progress .upload-progress-fill {
   height: 4px;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
   min-width: 10px;
+  flex: 1;
 }
 
 .upload-progress-bar.folder-progress .upload-progress-text {
   font-size: 10px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
-/* ─── Drag Status ─── */
+/* ─── Rename Error Dialog ─── */
+
+.rename-error-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.rename-error-dialog {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 16px;
+  min-width: 300px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rename-error-message {
+  margin: 0 0 12px 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.rename-error-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rename-error-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+  transition: background 0.1s;
+}
+
+.rename-error-btn:hover {
+  background: var(--accent-hover);
+}
 
 .drag-status-indicator {
   position: fixed;

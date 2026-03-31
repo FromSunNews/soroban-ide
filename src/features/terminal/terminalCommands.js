@@ -1,9 +1,65 @@
 /**
  * Terminal command execution logic.
  * Returns output string for each command.
+ *
+ * Local commands are handled here.
+ * Stellar commands are detected but executed by Terminal.jsx via the backend.
  */
 
-export const executeTerminalCommand = (cmd, cwd, setCwd) => {
+/**
+ * Check if a command should be routed to the backend (any `stellar` command).
+ */
+export const isStellarCommand = (cmd) => {
+  const trimmed = cmd.trim().toLowerCase();
+  return trimmed.startsWith('stellar ');
+};
+
+/**
+ * List files/folders at the given cwd relative to the workspace tree.
+ * Returns a formatted string like a real `ls` output.
+ */
+const listFiles = (treeData, cwd) => {
+  if (!treeData?.length) return '';
+
+  // The root of the tree is the project folder
+  const root = treeData[0];
+  if (!root) return '';
+
+  // Parse cwd to find the target node
+  // cwd is like "~/project" or "~/project/src"
+  const cwdParts = cwd.replace(/^~\/project\/?/, '').split('/').filter(Boolean);
+
+  let current = root;
+  for (const part of cwdParts) {
+    if (!current.children?.length) return `ls: cannot access '${part}': No such file or directory`;
+    const found = current.children.find((c) => c.name === part);
+    if (!found) return `ls: cannot access '${part}': No such file or directory`;
+    if (found.type !== 'folder') return `ls: '${part}' is not a directory`;
+    current = found;
+  }
+
+  if (!current.children?.length) return '';
+
+  // Format output: folders with trailing /, files without
+  const entries = current.children
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .map((node) => (node.type === 'folder' ? `${node.name}/` : node.name));
+
+  return entries.join('\n');
+};
+
+/**
+ * Execute a local terminal command.
+ * @param {string} cmd - Full command string
+ * @param {string} cwd - Current working directory
+ * @param {function} setCwd - State setter for cwd
+ * @param {Array} treeData - Workspace tree (optional, for ls)
+ * @returns {string|null} Output string, or null to clear terminal
+ */
+export const executeTerminalCommand = (cmd, cwd, setCwd, treeData) => {
   const parts = cmd.split(' ');
   const command = parts[0].toLowerCase();
   const args = parts.slice(1);
@@ -11,14 +67,17 @@ export const executeTerminalCommand = (cmd, cwd, setCwd) => {
   switch (command) {
     case 'help':
       return `Available commands:
-  clear          - Clear terminal
-  pwd            - Print working directory
-  cd <dir>       - Change directory
-  ls             - List files
-  echo <text>    - Print text
-  whoami         - Current user
-  date           - Current date
-  npm <cmd>      - Run npm command (simulated)`;
+  clear                    - Clear terminal
+  pwd                      - Print working directory
+  cd <dir>                 - Change directory
+  ls                       - List files in current directory
+  echo <text>              - Print text
+  whoami                   - Current user
+  date                     - Current date
+
+  stellar contract build   - Build Soroban contract (via backend)
+  stellar contract deploy  - Deploy contract (via backend)
+  stellar <...>            - Any stellar CLI command (via backend)`;
 
     case 'clear':
       return null; // Signal to clear history
@@ -43,7 +102,10 @@ export const executeTerminalCommand = (cmd, cwd, setCwd) => {
       return '';
 
     case 'ls':
-      return 'node_modules/\nsrc/\npublic/\npackage.json\nREADME.md\ntsconfig.json';
+      if (treeData) {
+        return listFiles(treeData, cwd);
+      }
+      return '';
 
     case 'echo':
       return args.join(' ');
@@ -53,6 +115,9 @@ export const executeTerminalCommand = (cmd, cwd, setCwd) => {
 
     case 'date':
       return new Date().toString();
+
+    case 'cat':
+      return `cat: reading from workspace not yet supported`;
 
     case 'npm':
       if (args[0] === 'install' || args[0] === 'i') {

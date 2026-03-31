@@ -3,26 +3,11 @@
  * Extracts complex state logic from Layout into composable hooks.
  */
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { loadState, saveStateSection, clearState } from '../../utils/storage';
-import {
-  uniqueId,
-  addNodeToTree,
-  removeNodeFromTree,
-  renameNodeInTree,
-  moveNodeInTree,
-  collectFileIds,
-  collectAllIds,
-  cloneNodeWithNewIds,
-  collectContentsMap,
-  flattenTree,
-} from './workspaceUtils';
-import {
-  createDefaultWorkspace,
-  createHelloWorldWorkspace,
-  createBlankWorkspace,
-  DEFAULT_TEMPLATES,
-} from './workspaceTemplates';
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { loadState, saveStateSection, clearState } from "../../utils/storage";
+import { uniqueId, addNodeToTree, removeNodeFromTree, renameNodeInTree, moveNodeInTree, collectFileIds, collectAllIds, cloneNodeWithNewIds, collectContentsMap, flattenTree } from "./workspaceUtils";
+import { createDefaultWorkspace, createHelloWorldWorkspace, createBlankWorkspace, DEFAULT_TEMPLATES } from "./workspaceTemplates";
+import { cloneRepository } from "../../services/githubService";
 
 /* ─── useWorkspaceState ─── */
 
@@ -30,23 +15,17 @@ export const useWorkspaceState = () => {
   const workspaceSeed = useMemo(() => createDefaultWorkspace(), []);
   const persistedState = useMemo(() => loadState()?.workspace, []);
 
-  const [treeData, setTreeData] = useState(
-    () => persistedState?.treeData || workspaceSeed.tree
-  );
-  const [fileContents, setFileContents] = useState(
-    () => persistedState?.fileContents || workspaceSeed.contents
-  );
-  const [expandedFolders, setExpandedFolders] = useState(
-    () => new Set(persistedState?.expandedFolders || [treeData[0]?.id ?? 'root'])
-  );
+  const [treeData, setTreeData] = useState(() => persistedState?.treeData || workspaceSeed.tree);
+  const [fileContents, setFileContents] = useState(() => persistedState?.fileContents || workspaceSeed.contents);
+  const [expandedFolders, setExpandedFolders] = useState(() => new Set(persistedState?.expandedFolders || [treeData[0]?.id ?? "root"]));
 
-  const rootId = treeData[0]?.id ?? 'root';
+  const rootId = treeData[0]?.id ?? "root";
 
   const flattenedNodes = useMemo(() => flattenTree(treeData), [treeData]);
 
   // Persist workspace state
   useEffect(() => {
-    saveStateSection('workspace', {
+    saveStateSection("workspace", {
       treeData,
       fileContents,
       expandedFolders: Array.from(expandedFolders),
@@ -76,11 +55,11 @@ export const useWorkspaceState = () => {
       setExpandedFolders((prev) => {
         const next = new Set(prev);
         next.add(targetParentId);
-        if (type === 'folder') next.add(newId);
+        if (type === "folder") next.add(newId);
         return next;
       });
 
-      if (type === 'file') {
+      if (type === "file") {
         setFileContents((prev) => ({
           ...prev,
           [newId]: DEFAULT_TEMPLATES[name] ?? `// ${name}\n`,
@@ -89,7 +68,7 @@ export const useWorkspaceState = () => {
 
       return newId;
     },
-    [rootId]
+    [rootId],
   );
 
   const deleteItem = useCallback(
@@ -118,7 +97,7 @@ export const useWorkspaceState = () => {
 
       return fileIdsToDelete;
     },
-    [flattenedNodes]
+    [flattenedNodes],
   );
 
   const renameItem = useCallback((nodeId, newName) => {
@@ -130,7 +109,7 @@ export const useWorkspaceState = () => {
     (nodeId, targetParentId) => {
       if (!nodeId || !targetParentId || nodeId === targetParentId) return;
       const target = flattenedNodes.get(targetParentId);
-      if (!target || target.type !== 'folder') return;
+      if (!target || target.type !== "folder") return;
 
       setTreeData((prev) => moveNodeInTree(prev, nodeId, targetParentId));
       setExpandedFolders((prev) => {
@@ -139,25 +118,64 @@ export const useWorkspaceState = () => {
         return next;
       });
     },
-    [flattenedNodes]
+    [flattenedNodes],
   );
 
   const uploadFiles = useCallback(
     async (files, parentId) => {
       const targetParentId = parentId || rootId;
 
+      // Helper to get unique filename
+      const getUniqueFileName = (baseTree, targetId, originalName) => {
+        const parentNode = baseTree.find((n) => n.id === targetId) || baseTree.flatMap((n) => n.children || []).find((n) => n.id === targetId);
+
+        if (!parentNode) return originalName;
+
+        const siblings = parentNode.children || [];
+        const existingFiles = siblings.filter((n) => n.type === "file").map((n) => n.name);
+
+        if (!existingFiles.includes(originalName)) {
+          return originalName;
+        }
+
+        // Split name and extension
+        const lastDotIndex = originalName.lastIndexOf(".");
+        const hasExtension = lastDotIndex > 0;
+        const baseName = hasExtension ? originalName.slice(0, lastDotIndex) : originalName;
+        const extension = hasExtension ? originalName.slice(lastDotIndex) : "";
+
+        // Find next available copy number
+        let copyNum = 1;
+        let newName;
+        do {
+          const copySuffix = copyNum === 1 ? " (copy)" : ` (copy ${copyNum})`;
+          newName = baseName + copySuffix + extension;
+          copyNum++;
+        } while (existingFiles.includes(newName));
+
+        return newName;
+      };
+
       for (const file of files) {
         const newId = uniqueId();
-        const newNode = { id: newId, name: file.name, type: 'file', children: [] };
 
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        const isBinary = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'pdf'].includes(ext);
+        // Get unique filename (check current tree state)
+        let finalFileName = file.name;
+        setTreeData((prevTree) => {
+          finalFileName = getUniqueFileName(prevTree, targetParentId, file.name);
+          return prevTree; // Don't modify yet, just check
+        });
+
+        const newNode = { id: newId, name: finalFileName, type: "file", children: [] };
+
+        const ext = finalFileName.split(".").pop()?.toLowerCase();
+        const isBinary = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "pdf"].includes(ext);
 
         let content;
         if (isBinary) {
           const buffer = await file.arrayBuffer();
           const bytes = new Uint8Array(buffer);
-          let binary = '';
+          let binary = "";
           for (let i = 0; i < bytes.byteLength; i++) {
             binary += String.fromCharCode(bytes[i]);
           }
@@ -176,20 +194,20 @@ export const useWorkspaceState = () => {
         return next;
       });
     },
-    [rootId]
+    [rootId],
   );
 
   const refreshWorkspace = useCallback(() => {
     const fresh = createDefaultWorkspace();
     setTreeData(fresh.tree);
     setFileContents(fresh.contents);
-    setExpandedFolders(new Set([fresh.tree[0]?.id ?? 'root']));
+    setExpandedFolders(new Set([fresh.tree[0]?.id ?? "root"]));
     return fresh;
   }, []);
 
   const createProject = useCallback((type) => {
     clearState();
-    const factory = type === 'hello-world' ? createHelloWorldWorkspace : createBlankWorkspace;
+    const factory = type === "hello-world" ? createHelloWorldWorkspace : createBlankWorkspace;
     const { tree, contents } = factory();
     setTreeData(tree);
     setFileContents(contents);
@@ -199,26 +217,11 @@ export const useWorkspaceState = () => {
 
   const cloneFromGithub = useCallback(async (url) => {
     clearState();
-    const repoName = url.split('/').pop()?.replace('.git', '') || 'cloned-repo';
-    const rootNodeId = uniqueId();
-    const readmeId = uniqueId();
-
-    const tree = [
-      {
-        id: rootNodeId,
-        name: repoName,
-        type: 'folder',
-        children: [{ id: readmeId, name: 'README.md', type: 'file', children: [] }],
-      },
-    ];
-    const contents = {
-      [readmeId]: `# ${repoName}\n\nCloned from ${url}\n\nThis is a cloned repository.`,
-    };
-
+    const { tree, contents, repoName } = await cloneRepository(url, uniqueId);
     setTreeData(tree);
     setFileContents(contents);
-    setExpandedFolders(new Set([rootNodeId]));
-    return { tree, contents };
+    setExpandedFolders(new Set([tree[0]?.id]));
+    return { tree, contents, repoName };
   }, []);
 
   return {
@@ -248,26 +251,26 @@ export const useTabManager = (flattenedNodes) => {
 
   const [tabs, setTabs] = useState(() => persistedState?.tabs || []);
   const [activeFileId, setActiveFileId] = useState(() => persistedState?.activeFileId || null);
-  const [previewTabId, setPreviewTabId] = useState(null);
+  const [previewTabId, setPreviewTabId] = useState(() => persistedState?.previewTabId || null);
   const lastClickRef = useRef({ id: null, time: 0 });
 
   // Persist tabs state
   useEffect(() => {
-    saveStateSection('workspace', {
+    saveStateSection("workspace", {
       ...(loadState()?.workspace || {}),
       tabs,
       activeFileId,
+      previewTabId,
     });
-  }, [tabs, activeFileId]);
+  }, [tabs, activeFileId, previewTabId]);
 
   const selectFile = useCallback(
     (nodeId) => {
       const node = flattenedNodes.get(nodeId);
-      if (!node || node.type !== 'file') return;
+      if (!node || node.type !== "file") return;
 
       const now = Date.now();
-      const isDoubleClick =
-        lastClickRef.current.id === nodeId && now - lastClickRef.current.time < 300;
+      const isDoubleClick = lastClickRef.current.id === nodeId && now - lastClickRef.current.time < 300;
       lastClickRef.current = { id: nodeId, time: now };
 
       setActiveFileId(nodeId);
@@ -277,15 +280,22 @@ export const useTabManager = (flattenedNodes) => {
         setTabs((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
       } else {
         setTabs((prev) => {
+          // If clicking an existing tab, just switch to it without changing tabs
+          if (prev.includes(nodeId)) {
+            return prev;
+          }
+          // If clicking a new file, replace the current preview tab (if any) with the new one
           const withoutPreview = prev.filter((id) => id !== previewTabId);
-          return withoutPreview.includes(nodeId)
-            ? withoutPreview
-            : [...withoutPreview, nodeId];
+          return [...withoutPreview, nodeId];
         });
-        setPreviewTabId(nodeId);
+        // Only change preview state when clicking NEW file
+        // Clicking existing permanent/preview file should not change preview state
+        if (!tabs.includes(nodeId)) {
+          setPreviewTabId(nodeId);
+        }
       }
     },
-    [flattenedNodes, previewTabId]
+    [flattenedNodes, previewTabId, tabs],
   );
 
   const closeTab = useCallback(
@@ -299,16 +309,13 @@ export const useTabManager = (flattenedNodes) => {
       });
       if (previewTabId === nodeId) setPreviewTabId(null);
     },
-    [activeFileId, previewTabId]
+    [activeFileId, previewTabId],
   );
 
-  const openFile = useCallback(
-    (nodeId) => {
-      setActiveFileId(nodeId);
-      setTabs((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
-    },
-    []
-  );
+  const openFile = useCallback((nodeId) => {
+    setActiveFileId(nodeId);
+    setTabs((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
+  }, []);
 
   const resetTabs = useCallback(() => {
     setTabs([]);
@@ -335,11 +342,11 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
   const [clipboard, setClipboard] = useState(null);
 
   const copyItem = useCallback((nodeId) => {
-    setClipboard({ nodeId, operation: 'copy' });
+    setClipboard({ nodeId, operation: "copy" });
   }, []);
 
   const cutItem = useCallback((nodeId) => {
-    setClipboard({ nodeId, operation: 'cut' });
+    setClipboard({ nodeId, operation: "cut" });
   }, []);
 
   const pasteItem = useCallback(
@@ -354,7 +361,7 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
 
       if (clipboard.nodeId === targetParentId) return;
 
-      if (clipboard.operation === 'copy') {
+      if (clipboard.operation === "copy") {
         const idMapping = {};
         const cloned = cloneNodeWithNewIds(sourceNode, idMapping);
 
@@ -371,7 +378,7 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
             return next;
           });
         }
-      } else if (clipboard.operation === 'cut') {
+      } else if (clipboard.operation === "cut") {
         setTreeData((prev) => moveNodeInTree(prev, clipboard.nodeId, targetParentId));
         setClipboard(null);
       }
@@ -382,7 +389,7 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
         return next;
       });
     },
-    [clipboard, flattenedNodes, fileContents, setTreeData, setFileContents, setExpandedFolders]
+    [clipboard, flattenedNodes, fileContents, setTreeData, setFileContents, setExpandedFolders],
   );
 
   return { clipboard, setClipboard, copyItem, cutItem, pasteItem };

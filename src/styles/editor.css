@@ -3,6 +3,7 @@
 .editor-area {
   flex: 1;
   position: relative;
+  overscroll-behavior: none;
 }
 
 .editor-area.hidden {
@@ -12,6 +13,16 @@
 .editor-container {
   position: absolute;
   inset: 0;
+  overscroll-behavior: none;
+}
+
+/* Monaco editor overscroll fix */
+.monaco-editor,
+.monaco-editor .overflow-guard,
+.monaco-editor .monaco-scrollable-element,
+.monaco-editor .lines-content,
+.monaco-editor .view-lines {
+  overscroll-behavior: none !important;
 }
 
 /* ─── Image Viewer ─── */
@@ -25,6 +36,7 @@
   background: var(--editor-bg);
   padding: 20px;
   overflow: auto;
+  overscroll-behavior: none;
 }
 
 .image-viewer img {

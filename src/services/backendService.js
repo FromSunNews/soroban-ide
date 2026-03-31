@@ -1,0 +1,124 @@
+/**
+ * Backend integration service for Soroban Studio.
+ *
+ * Handles communication with the Go backend at /api (proxied in dev).
+ * - POST /api/run  → submit project files for compilation
+ * - WS   /api/ws   → stream build output in real-time
+ */
+
+const API_BASE = '/api';
+
+/**
+ * Walk the workspace tree and collect all files into a flat
+ * { "relative/path": "content" } map for the backend.
+ */
+export const collectProjectFiles = (treeData, fileContents) => {
+  const files = {};
+
+  const walk = (nodes, parentPath = '') => {
+    for (const node of nodes) {
+      // Skip the root folder name itself — paths start from its children
+      const isRoot = parentPath === '' && node.type === 'folder' && nodes.length === 1 && nodes.indexOf(node) === 0;
+      const currentPath = isRoot ? '' : (parentPath ? `${parentPath}/${node.name}` : node.name);
+
+      if (node.type === 'file') {
+        const filePath = parentPath ? `${parentPath}/${node.name}` : node.name;
+        const content = fileContents[node.id];
+        if (content !== undefined) {
+          files[filePath] = content;
+        }
+      }
+
+      if (node.children?.length) {
+        walk(node.children, currentPath);
+      }
+    }
+  };
+
+  walk(treeData);
+  return files;
+};
+
+/**
+ * Submit project files to the backend for compilation.
+ * @param {Object} files - { "path/to/file": "content" }
+ * @returns {Promise<string>} session_id
+ */
+export const submitBuild = async (files) => {
+  const response = await fetch(`${API_BASE}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message;
+    try {
+      message = JSON.parse(text).error;
+    } catch {
+      message = text;
+    }
+    throw new Error(message || `Backend error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.session_id;
+};
+
+/**
+ * Open a WebSocket connection to stream build output.
+ *
+ * @param {string} sessionId - from submitBuild()
+ * @param {Object} callbacks
+ * @param {function} callbacks.onMessage - called with { type, content } for each message
+ * @param {function} callbacks.onError   - called with error string
+ * @param {function} callbacks.onDone    - called when build is complete
+ * @returns {function} cleanup — call to close the WebSocket
+ */
+export const connectBuildStream = (sessionId, { onMessage, onError, onDone }) => {
+  // Build WebSocket URL from current page location
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}${API_BASE}/ws?session_id=${sessionId}`;
+
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    onMessage({ type: 'info', content: '⚡ Connected to build server...' });
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+
+      // "done" signal means build is complete
+      if (msg.type === 'done') {
+        onDone();
+        ws.close();
+        return;
+      }
+
+      onMessage(msg);
+    } catch {
+      // If not JSON, treat as raw text
+      onMessage({ type: 'stdout', content: event.data });
+    }
+  };
+
+  ws.onerror = () => {
+    onError('WebSocket connection error');
+  };
+
+  ws.onclose = (event) => {
+    if (!event.wasClean) {
+      onError('Connection to build server lost');
+    }
+  };
+
+  // Return cleanup function
+  return () => {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close();
+    }
+  };
+};

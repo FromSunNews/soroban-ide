@@ -16,8 +16,40 @@
 }
 
 .terminal.collapsed {
-  height: 30px !important;
-  min-height: 30px !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  flex: 0 0 auto;
+  background: transparent;
+  border-top: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.terminal.collapsed .terminal-header {
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+  justify-content: flex-start;
+  position: absolute;
+  bottom: 0;
+  pointer-events: auto;
+}
+
+.terminal.collapsed .terminal-title-btn {
+  padding: 8px 16px;
+  margin: 0;
+  background: #1a1a1a;
+  border-radius: 4px 4px 0 0;
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  position: relative;
+  pointer-events: auto;
+}
+
+.terminal.collapsed .terminal-resize-handle {
+  display: none;
 }
 
 .terminal.maximized {
@@ -48,47 +80,41 @@
 .terminal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 8px 12px;
   min-height: 40px;
   border-bottom: 1px solid var(--border-color);
 }
 
-.terminal-status {
+.terminal-title-btn {
   display: flex;
   align-items: center;
   gap: 12px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 10px 16px;
+  margin: -8px -8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.terminal-title-btn:hover {
+  background: var(--hover-bg);
 }
 
 .terminal-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  text-transform: uppercase;
   color: var(--text-secondary);
   letter-spacing: 0.05em;
 }
 
-.terminal-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.terminal-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  transition: background 0.2s, color 0.2s;
-}
-
-.terminal-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
+.terminal-running-badge {
+  font-size: 11px;
+  color: #c3e88d;
+  animation: terminal-pulse 1.5s ease-in-out infinite;
 }
 
 /* ─── Window ─── */
@@ -96,11 +122,12 @@
 .terminal-window {
   flex: 1;
   padding: 8px 12px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, Consolas, monospace;
-  font-size: 13px;
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace;
+  font-size: 16px;
   overflow-y: auto;
   background: #0d0d0d;
   color: #e0e0e0;
+  overscroll-behavior: none;
 }
 
 .terminal.collapsed .terminal-window {
@@ -133,13 +160,32 @@
   word-break: break-all;
 }
 
-.terminal-prompt-user { color: #4fc1ff; font-weight: 500; }
-.terminal-prompt-at { color: #e0e0e0; }
-.terminal-prompt-host { color: #89ddff; }
-.terminal-prompt-separator { color: #e0e0e0; }
-.terminal-prompt-path { color: #c3e88d; font-weight: 500; }
-.terminal-prompt-symbol { color: #ff5370; margin: 0 6px; }
-.terminal-prompt-command { color: #e0e0e0; white-space: pre-wrap; word-break: break-all; }
+.terminal-prompt-user {
+  color: #4fc1ff;
+  font-weight: 500;
+}
+.terminal-prompt-at {
+  color: #e0e0e0;
+}
+.terminal-prompt-host {
+  color: #89ddff;
+}
+.terminal-prompt-separator {
+  color: #e0e0e0;
+}
+.terminal-prompt-path {
+  color: #c3e88d;
+  font-weight: 500;
+}
+.terminal-prompt-symbol {
+  color: #ff5370;
+  margin: 0 6px;
+}
+.terminal-prompt-command {
+  color: #e0e0e0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
 
 .terminal-output {
   margin: 4px 0 8px 0;
@@ -176,4 +222,36 @@
 
 .terminal-input::placeholder {
   color: #616161;
+}
+
+/* ─── Backend Integration Styles ─── */
+
+.terminal-error .terminal-output {
+  color: #ff5370;
+}
+
+.terminal-info .terminal-output {
+  color: #89ddff;
+}
+
+.terminal-running-badge {
+  font-size: 11px;
+  color: #c3e88d;
+  animation: terminal-pulse 1.5s ease-in-out infinite;
+  margin-left: 8px;
+}
+
+@keyframes terminal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.terminal-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

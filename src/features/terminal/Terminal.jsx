@@ -1,32 +1,34 @@
-import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { loadState, saveStateSection } from '../../utils/storage';
-import { executeTerminalCommand } from './terminalCommands';
+import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { loadState, saveStateSection } from "../../utils/storage";
+import { executeTerminalCommand, isStellarCommand } from "./terminalCommands";
+import { collectProjectFiles, submitBuild, connectBuildStream } from "../../services/backendService";
 
-const MIN_HEIGHT = 30;
-const MAX_HEIGHT = 9999;
-const COLLAPSE_THRESHOLD = 50;
-const DEFAULT_HEIGHT = 150;
+const MIN_HEIGHT = 28;
+const COLLAPSE_THRESHOLD = 60;
+const DEFAULT_HEIGHT = 220;
+const MAX_HEIGHT = 600;
 
 /**
- * Terminal panel with simulated shell.
+ * Terminal panel with simulated shell + backend integration.
  */
-const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaximizeChange }) => {
+const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeData, fileContents }) => {
   const persistedState = useMemo(() => loadState()?.terminal, []);
 
   const [height, setHeight] = useState(() => persistedState?.height || DEFAULT_HEIGHT);
   const [isCollapsed, setIsCollapsed] = useState(() => persistedState?.isCollapsed ?? true);
-  const [isMaximized, setIsMaximized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [history, setHistory] = useState(
-    () => persistedState?.history || [
-      { type: 'output', content: 'Welcome to Soroban Studio Terminal' },
-      { type: 'output', content: "Type 'help' for available commands" },
-    ]
+    () =>
+      persistedState?.history || [
+        { type: "output", content: "Welcome to Soroban Studio Terminal" },
+        { type: "output", content: "Type 'help' for available commands" },
+      ],
   );
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandHistory, setCommandHistory] = useState(() => persistedState?.commandHistory || []);
   const [cwd, setCwd] = useState(() => persistedState?.cwd || currentDirectory);
+  const [isRunning, setIsRunning] = useState(false);
 
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
@@ -34,21 +36,93 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
   const dragStartHeight = useRef(0);
   const windowEndRef = useRef(null);
   const previousHeight = useRef(DEFAULT_HEIGHT);
+  const wsCleanupRef = useRef(null);
 
-  // Persist terminal state
+  // Save state without maximized
   useEffect(() => {
-    saveStateSection('terminal', { height, isCollapsed, history, commandHistory, cwd });
+    saveStateSection("terminal", { height, isCollapsed, history, commandHistory, cwd });
   }, [height, isCollapsed, history, commandHistory, cwd]);
 
-  const scrollToBottom = useCallback(() => {
-    windowEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsCleanupRef.current) {
+        wsCleanupRef.current();
+        wsCleanupRef.current = null;
+      }
+    };
   }, []);
+
+  const terminalWindowRef = useRef(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  const scrollToBottom = useCallback(() => {
+    if (autoScroll && windowEndRef.current) {
+      windowEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [autoScroll]);
 
   useEffect(() => scrollToBottom(), [history, scrollToBottom]);
 
-  const getShortPath = useCallback((path) => {
-    return path.startsWith('~/') ? '~' + path.slice(1) : path;
+  // Detect if user is scrolling up (disable auto-scroll)
+  const handleScroll = useCallback(() => {
+    if (terminalWindowRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = terminalWindowRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setAutoScroll(isNearBottom);
+    }
   }, []);
+
+  const getShortPath = useCallback((path) => {
+    return path.startsWith("~/") ? "~" + path.slice(1) : path;
+  }, []);
+
+  /* ─── Backend command execution ─── */
+
+  const executeStellarCommand = useCallback(
+    async (cmd) => {
+      setIsRunning(true);
+
+      setHistory((prev) => [...prev, { type: "output", content: "🚀 Sending to build server..." }]);
+
+      try {
+        // Collect all project files from the workspace tree
+        const files = collectProjectFiles(treeData || [], fileContents || {});
+
+        if (!files || Object.keys(files).length === 0) {
+          setHistory((prev) => [...prev, { type: "error", content: "❌ No files in workspace to send. Create a project first." }]);
+          setIsRunning(false);
+          return;
+        }
+
+        // Submit to backend
+        const sessionId = await submitBuild(files);
+
+        setHistory((prev) => [...prev, { type: "output", content: `📡 Build session: ${sessionId}` }]);
+
+        // Connect WebSocket for streaming output
+        wsCleanupRef.current = connectBuildStream(sessionId, {
+          onMessage: (msg) => {
+            const className = msg.type === "error" ? "error" : msg.type === "info" ? "info" : "output";
+            setHistory((prev) => [...prev, { type: className, content: msg.content }]);
+          },
+          onError: (errorMsg) => {
+            setHistory((prev) => [...prev, { type: "error", content: `❌ ${errorMsg}` }]);
+            setIsRunning(false);
+            wsCleanupRef.current = null;
+          },
+          onDone: () => {
+            setIsRunning(false);
+            wsCleanupRef.current = null;
+          },
+        });
+      } catch (err) {
+        setHistory((prev) => [...prev, { type: "error", content: `❌ ${err.message || "Failed to connect to build server"}` }]);
+        setIsRunning(false);
+      }
+    },
+    [treeData, fileContents],
+  );
 
   /* ─── Command execution ─── */
 
@@ -56,20 +130,26 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
     (cmd) => {
       const trimmedCmd = cmd.trim();
       if (!trimmedCmd) return;
+      if (isRunning) return;
 
-      setHistory((prev) => [...prev, { type: 'command', content: trimmedCmd, cwd: getShortPath(cwd) }]);
+      setHistory((prev) => [...prev, { type: "command", content: trimmedCmd, cwd: getShortPath(cwd) }]);
       setCommandHistory((prev) => [...prev, trimmedCmd]);
       setHistoryIndex(-1);
 
-      const output = executeTerminalCommand(trimmedCmd, cwd, setCwd);
+      // Route: stellar commands → backend, everything else → local
+      if (isStellarCommand(trimmedCmd)) {
+        executeStellarCommand(trimmedCmd);
+      } else {
+        const output = executeTerminalCommand(trimmedCmd, cwd, setCwd, treeData);
 
-      if (output === null) {
-        setHistory([]);
-      } else if (output) {
-        setHistory((prev) => [...prev, { type: 'output', content: output }]);
+        if (output === null) {
+          setHistory([]);
+        } else if (output) {
+          setHistory((prev) => [...prev, { type: "output", content: output }]);
+        }
       }
     },
-    [cwd, getShortPath]
+    [cwd, getShortPath, isRunning, executeStellarCommand, treeData],
   );
 
   /* ─── Resize handlers ─── */
@@ -81,7 +161,7 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
       dragStartY.current = e.clientY;
       dragStartHeight.current = height;
     },
-    [height]
+    [height],
   );
 
   const handleMouseMove = useCallback(
@@ -92,37 +172,35 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
 
       if (newHeight < COLLAPSE_THRESHOLD) {
         setIsCollapsed(true);
-        setIsMaximized(false);
         setHeight(MIN_HEIGHT);
         previousHeight.current = DEFAULT_HEIGHT;
       } else {
         setIsCollapsed(false);
-        setIsMaximized(false);
         setHeight(Math.max(MIN_HEIGHT + 10, Math.min(MAX_HEIGHT, newHeight)));
       }
     },
-    [isDragging]
+    [isDragging],
   );
 
   const handleMouseUp = useCallback(() => setIsDragging(false), []);
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'row-resize';
-      document.body.style.userSelect = 'none';
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
     } else {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     }
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
@@ -130,38 +208,23 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
     if (isCollapsed) {
       setIsCollapsed(false);
       setHeight(previousHeight.current || DEFAULT_HEIGHT);
-      setIsMaximized(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
       previousHeight.current = height > MIN_HEIGHT ? height : DEFAULT_HEIGHT;
       setIsCollapsed(true);
-      setIsMaximized(false);
       setHeight(MIN_HEIGHT);
     }
   }, [isCollapsed, height]);
-
-  const toggleMaximize = useCallback(() => {
-    const newMaximized = !isMaximized;
-    setIsMaximized(newMaximized);
-    onMaximizeChange?.(newMaximized);
-    if (newMaximized) {
-      setIsCollapsed(false);
-      requestAnimationFrame(() => setHeight(MAX_HEIGHT));
-    } else {
-      setHeight(previousHeight.current || DEFAULT_HEIGHT);
-    }
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [isMaximized, onMaximizeChange]);
 
   /* ─── Keyboard handling ─── */
 
   const handleKeyDown = useCallback(
     (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         e.preventDefault();
         handleExecute(input);
-        setInput('');
-      } else if (e.key === 'ArrowUp') {
+        setInput("");
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
         if (commandHistory.length > 0) {
           const newIndex = historyIndex + 1;
@@ -170,7 +233,7 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
             setInput(commandHistory[commandHistory.length - 1 - newIndex]);
           }
         }
-      } else if (e.key === 'ArrowDown') {
+      } else if (e.key === "ArrowDown") {
         e.preventDefault();
         if (historyIndex > 0) {
           const newIndex = historyIndex - 1;
@@ -178,64 +241,68 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
           setInput(commandHistory[commandHistory.length - 1 - newIndex]);
         } else if (historyIndex === 0) {
           setHistoryIndex(-1);
-          setInput('');
+          setInput("");
         }
-      } else if (e.key === 'Tab') {
+      } else if (e.key === "Tab") {
         e.preventDefault();
-        const commands = ['clear', 'pwd', 'cd', 'ls', 'echo', 'whoami', 'date', 'npm', 'help'];
+        const commands = ["clear", "pwd", "cd", "ls", "echo", "whoami", "date", "stellar", "help"];
         const matches = commands.filter((c) => c.startsWith(input.toLowerCase()));
         if (matches.length === 1) setInput(matches[0]);
-      } else if (e.key === 'l' && e.ctrlKey) {
+      } else if (e.key === "l" && e.ctrlKey) {
         e.preventDefault();
         setHistory([]);
+      } else if (e.key === "c" && e.ctrlKey && isRunning) {
+        // Ctrl+C to cancel running command
+        e.preventDefault();
+        if (wsCleanupRef.current) {
+          wsCleanupRef.current();
+          wsCleanupRef.current = null;
+        }
+        setIsRunning(false);
+        setHistory((prev) => [...prev, { type: "error", content: "^C — cancelled" }]);
       }
     },
-    [input, historyIndex, commandHistory, handleExecute]
+    [input, historyIndex, commandHistory, handleExecute, isRunning],
   );
 
-  const handleTerminalClick = useCallback(() => {
-    if (!isCollapsed) inputRef.current?.focus();
-  }, [isCollapsed]);
+  const handleTerminalClick = useCallback(
+    (e) => {
+      // Don't focus if user is selecting text
+      if (window.getSelection()?.toString()) return;
+      if (!isCollapsed && inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+      }
+    },
+    [isCollapsed],
+  );
+
+  /* ─── Render helpers ─── */
+
+  const getLineClassName = (entry) => {
+    if (entry.type === "command") return "terminal-line command";
+    if (entry.type === "error") return "terminal-line output terminal-error";
+    if (entry.type === "info") return "terminal-line output terminal-info";
+    return "terminal-line output";
+  };
 
   /* ─── Render ─── */
 
   return (
-    <div
-      ref={terminalRef}
-      className={`terminal ${isCollapsed ? 'collapsed' : ''} ${isMaximized ? 'maximized' : ''} ${isDragging ? '' : 'animate'}`}
-      style={{ height: isCollapsed ? MIN_HEIGHT : height }}
-      onClick={handleTerminalClick}
-    >
-      <div className={`terminal-resize-handle ${isDragging ? 'dragging' : ''}`} onMouseDown={handleMouseDown} />
+    <div ref={terminalRef} className={`terminal ${isCollapsed ? "collapsed" : ""} ${isDragging ? "" : "animate"}`} style={{ height: isCollapsed ? MIN_HEIGHT : height }} onClick={handleTerminalClick}>
+      <div className={`terminal-resize-handle ${isDragging ? "dragging" : ""}`} onMouseDown={handleMouseDown} />
 
       <div className="terminal-header">
-        <div className="terminal-status">
+        <button className="terminal-title-btn" onClick={toggleCollapse} title={isCollapsed ? "Expand" : "Minimize"}>
           <span className="terminal-title">Terminal</span>
-        </div>
-        <div className="terminal-actions">
-          <button className="terminal-btn" onClick={toggleCollapse} title={isCollapsed ? 'Expand' : 'Minimize'}>
-            {isCollapsed ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 15 12 9 18 15" /></svg>
-            )}
-          </button>
-          <button className="terminal-btn" onClick={toggleMaximize} title={isMaximized ? 'Restore' : 'Maximize'}>
-            {isMaximized ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="8" width="16" height="12" rx="1" /><line x1="4" y1="11" x2="20" y2="11" /></svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="1" /><line x1="4" y1="8" x2="20" y2="8" /></svg>
-            )}
-          </button>
-        </div>
+        </button>
       </div>
 
       {!isCollapsed && (
-        <div className="terminal-window">
+        <div className="terminal-window" ref={terminalWindowRef} onScroll={handleScroll}>
           <div className="terminal-content">
             {history.map((entry, index) => (
-              <div key={index} className={`terminal-line ${entry.type}`}>
-                {entry.type === 'command' && (
+              <div key={index} className={getLineClassName(entry)}>
+                {entry.type === "command" && (
                   <span className="terminal-prompt-line">
                     <span className="terminal-prompt-user">user</span>
                     <span className="terminal-prompt-at">@</span>
@@ -246,30 +313,22 @@ const Terminal = memo(({ activeFileName, currentDirectory = '~/project', onMaxim
                     <span className="terminal-prompt-command">{entry.content}</span>
                   </span>
                 )}
-                {entry.type === 'output' && <pre className="terminal-output">{entry.content}</pre>}
+                {entry.type !== "command" && <pre className="terminal-output">{entry.content}</pre>}
               </div>
             ))}
-            <div className="terminal-input-line">
-              <span className="terminal-prompt-line">
-                <span className="terminal-prompt-user">user</span>
-                <span className="terminal-prompt-at">@</span>
-                <span className="terminal-prompt-host">soroban</span>
-                <span className="terminal-prompt-separator">:</span>
-                <span className="terminal-prompt-path">{getShortPath(cwd)}</span>
-                <span className="terminal-prompt-symbol">$</span>
-              </span>
-              <input
-                ref={inputRef}
-                type="text"
-                className="terminal-input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                spellCheck="false"
-                autoComplete="off"
-                autoFocus
-              />
-            </div>
+            {!isRunning && (
+              <div className="terminal-input-line">
+                <span className="terminal-prompt-line">
+                  <span className="terminal-prompt-user">user</span>
+                  <span className="terminal-prompt-at">@</span>
+                  <span className="terminal-prompt-host">soroban</span>
+                  <span className="terminal-prompt-separator">:</span>
+                  <span className="terminal-prompt-path">{getShortPath(cwd)}</span>
+                  <span className="terminal-prompt-symbol">$</span>
+                </span>
+                <input ref={inputRef} type="text" className="terminal-input" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} spellCheck="false" autoComplete="off" autoFocus disabled={isRunning} placeholder={isRunning ? "Build in progress..." : ""} />
+              </div>
+            )}
             <div ref={windowEndRef} />
           </div>
         </div>

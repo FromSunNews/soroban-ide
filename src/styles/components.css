@@ -57,16 +57,19 @@
 }
 
 .create-new-btn {
-  width: 28px;
   height: 28px;
+  padding: 0 10px;
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .create-new-btn:hover {
@@ -77,6 +80,12 @@
 .create-new-btn svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
+}
+
+.create-new-label {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
 
 .create-new-dropdown {
@@ -121,7 +130,7 @@
 .github-clone-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,28 +140,28 @@
 .github-clone-dialog {
   background: var(--sidebar-bg);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 20px;
-  min-width: 420px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  padding: 16px;
+  min-width: 400px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .github-clone-dialog h3 {
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-size: var(--font-size-md);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .github-clone-dialog input {
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid var(--border-color);
-  border-radius: 3px;
+  border-radius: 2px;
   background: var(--editor-bg);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   outline: none;
 }
 
@@ -163,38 +172,43 @@
 .github-clone-dialog .dialog-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .github-clone-dialog button {
-  padding: 6px 14px;
+  padding: 4px 12px;
   border: 1px solid var(--border-color);
-  border-radius: 3px;
+  border-radius: 2px;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  transition: background 0.15s;
-  background: #3c3c3c;
+  transition: background 0.1s;
+  background: transparent;
   color: var(--text-primary);
 }
 
 .github-clone-dialog button:hover {
-  background: #4c4c4c;
+  background: var(--hover-bg);
 }
 
 .github-clone-dialog .btn-clone {
   background: var(--accent);
   color: white;
-  border-color: var(--accent);
+  border-color: transparent;
 }
 
 .github-clone-dialog .btn-clone:hover {
   background: var(--accent-hover);
 }
 
+.github-clone-dialog .btn-clone:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .github-clone-dialog .clone-status {
-  margin: -8px 0 16px 0;
-  padding: 8px 10px;
-  border-radius: 3px;
+  margin: 0 0 12px 0;
+  padding: 6px 8px;
   font-size: var(--font-size-sm);
 }
 
@@ -203,9 +217,43 @@
 }
 
 .github-clone-dialog .clone-status.success {
-  color: #89ddff;
+  color: #4caf50;
 }
 
 .github-clone-dialog .clone-status.error {
-  color: #ff5370;
+  color: #f44336;
+}
+
+/* ─── Status Bar ─── */
+
+.status-bar {
+  height: 22px;
+  background: var(--sidebar-bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-bar-cursor,
+.status-bar-selection,
+.status-bar-encoding,
+.status-bar-eol,
+.status-bar-language {
+  padding: 0 3px;
+}
+
+.status-bar-language {
+  letter-spacing: 0.3px;
+  font-weight: 500;
 }

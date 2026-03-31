@@ -1,47 +1,23 @@
-import React, { memo, useCallback } from 'react';
-import { FileIconImg, FolderIconImg } from '../../components/icons/FileIcon';
-import { ChevronDown, ChevronRight } from '../../components/icons/ChevronIcons';
-import { sortNodes, findParentId } from '../workspace/workspaceUtils';
-import InlineInput from './InlineInput';
-import RenameInput from './RenameInput';
+import React, { memo, useCallback } from "react";
+import { FileIconImg, FolderIconImg } from "../../components/icons/FileIcon";
+import { ChevronDown, ChevronRight } from "../../components/icons/ChevronIcons";
+import { sortNodes, findParentId } from "../workspace/workspaceUtils";
+import InlineInput from "./InlineInput";
+import RenameInput from "./RenameInput";
 
 /**
  * Recursive tree node component for the file explorer.
  * Renders a single file or folder with all its interactions.
  */
-const ExplorerNode = memo(({
-  node,
-  depth,
-  tree,
-  expandedFolders,
-  onToggleFolder,
-  onFileSelect,
-  activeFileId,
-  onSelectFolder,
-  selectedFolderId,
-  inlineInput,
-  onInlineSubmit,
-  onInlineCancel,
-  onContextMenu,
-  renameNode,
-  onRenameSubmit,
-  onRenameCancel,
-  onMoveItem,
-  onUploadFiles,
-  dragState,
-  setDragState,
-  clipboard,
-  folderUploadProgress,
-  setFolderUploadProgress,
-}) => {
-  const isFolder = node.type === 'folder';
+const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder, onFileSelect, activeFileId, onSelectFolder, selectedFolderId, inlineInput, onInlineSubmit, onInlineCancel, onContextMenu, renameNode, onRenameSubmit, onRenameCancel, onMoveItem, onUploadFiles, dragState, setDragState, clipboard, folderUploadProgress, setFolderUploadProgress }) => {
+  const isFolder = node.type === "folder";
   const isExpanded = expandedFolders.has(node.id);
   const isSelected = selectedFolderId === node.id;
   const isRenaming = renameNode?.id === node.id;
   const isDragging = dragState?.draggingId === node.id;
   const isDragOver = dragState?.dragOverId === node.id;
-  const isCut = clipboard?.nodeId === node.id && clipboard?.operation === 'cut';
-  const indent = depth * 18;
+  const isCut = clipboard?.nodeId === node.id && clipboard?.operation === "cut";
+  const indent = depth * 8;
 
   const handleClick = useCallback(() => {
     if (isFolder) {
@@ -52,18 +28,15 @@ const ExplorerNode = memo(({
     }
   }, [isFolder, node.id, onToggleFolder, onSelectFolder, onFileSelect]);
 
-  const handleContextMenuEvent = useCallback(
-    (e) => onContextMenu(e, node),
-    [node, onContextMenu]
-  );
+  const handleContextMenuEvent = useCallback((e) => onContextMenu(e, node), [node, onContextMenu]);
 
   const handleDragStart = useCallback(
     (e) => {
-      e.dataTransfer.setData('text/plain', node.id);
-      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData("text/plain", node.id);
+      e.dataTransfer.effectAllowed = "move";
       setDragState?.({ draggingId: node.id, dragOverId: null });
     },
-    [node.id, setDragState]
+    [node.id, setDragState],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -75,7 +48,7 @@ const ExplorerNode = memo(({
       e.preventDefault();
       e.stopPropagation();
 
-      const isExternal = e.dataTransfer.types.includes('Files');
+      const isExternal = e.dataTransfer.types.includes("Files");
       const targetFolderId = isFolder ? node.id : findParentId(tree, node.id);
 
       if (isExternal) {
@@ -90,7 +63,7 @@ const ExplorerNode = memo(({
             try {
               await onUploadFiles([filesArray[i]], targetFolderId);
             } catch (err) {
-              console.error('Upload failed:', filesArray[i].name, err);
+              console.error("Upload failed:", filesArray[i].name, err);
             }
             setFolderUploadProgress?.((prev) => ({
               ...prev,
@@ -106,28 +79,28 @@ const ExplorerNode = memo(({
           }, 500);
         }
       } else {
-        const draggedId = e.dataTransfer.getData('text/plain');
+        const draggedId = e.dataTransfer.getData("text/plain");
         if (draggedId && draggedId !== node.id && targetFolderId) {
           onMoveItem?.(draggedId, targetFolderId);
         }
       }
       setDragState?.({ draggingId: null, dragOverId: null });
     },
-    [node.id, isFolder, tree, onMoveItem, onUploadFiles, setDragState, setFolderUploadProgress]
+    [node.id, isFolder, tree, onMoveItem, onUploadFiles, setDragState, setFolderUploadProgress],
   );
 
   const handleDragOver = useCallback(
     (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const isExternal = e.dataTransfer.types.includes('Files');
-      e.dataTransfer.dropEffect = isExternal ? 'copy' : 'move';
+      const isExternal = e.dataTransfer.types.includes("Files");
+      e.dataTransfer.dropEffect = isExternal ? "copy" : "move";
       const targetId = isFolder ? node.id : findParentId(tree, node.id);
       if (targetId && dragState?.dragOverId !== targetId) {
         setDragState?.({ ...dragState, dragOverId: targetId });
       }
     },
-    [node.id, isFolder, tree, dragState, setDragState]
+    [node.id, isFolder, tree, dragState, setDragState],
   );
 
   const handleDragLeave = useCallback(
@@ -139,7 +112,7 @@ const ExplorerNode = memo(({
         }
       }
     },
-    [node.id, tree, dragState, setDragState]
+    [node.id, tree, dragState, setDragState],
   );
 
   const sharedProps = {
@@ -162,44 +135,25 @@ const ExplorerNode = memo(({
       );
     }
 
-    const className = [
-      'sidebar-folder',
-      isExpanded && 'expanded',
-      isSelected && 'selected',
-      isDragOver && 'drag-over',
-      isDragging && 'dragging',
-      isCut && 'cut',
-    ].filter(Boolean).join(' ');
+    const className = ["sidebar-folder", isExpanded && "expanded", isSelected && "selected", isDragOver && "drag-over", isDragging && "dragging", isCut && "cut"].filter(Boolean).join(" ");
 
     return (
       <div className="sidebar-node">
-        <button
-          className={className}
-          type="button"
-          onClick={handleClick}
-          style={{ paddingLeft: `${indent + 12}px` }}
-          {...sharedProps}
-        >
-          <span className="sidebar-chevron">{isExpanded ? <ChevronDown /> : <ChevronRight />}</span>
-          <span className="sidebar-node-icon">
-            <FolderIconImg folderName={node.name} isOpen={isExpanded} size={16} />
+        <button className={className} type="button" onClick={handleClick} style={{ paddingLeft: `${indent + 32}px` }} {...sharedProps}>
+          <span className="sidebar-chevron" style={{ position: "absolute", left: `${indent + 12}px` }}>
+            {isExpanded ? <ChevronDown /> : <ChevronRight />}
           </span>
-          <span className={`sidebar-node-label ${isCut ? 'cut-label' : ''}`}>{node.name}</span>
+          <span className="sidebar-node-icon">
+            <FolderIconImg folderName={node.name} isOpen={isExpanded} size={18} />
+          </span>
+          <span className={`sidebar-node-label ${isCut ? "cut-label" : ""}`}>{node.name}</span>
         </button>
 
         {isExpanded && (
           <div className="sidebar-children">
-            {inlineInput?.parentId === node.id && (
-              <InlineInput
-                type={inlineInput.type}
-                depth={depth + 1}
-                onSubmit={onInlineSubmit}
-                onCancel={onInlineCancel}
-                defaultValue={inlineInput.type === 'file' ? 'newfile' : 'newfolder'}
-              />
-            )}
+            {inlineInput?.parentId === node.id && <InlineInput type={inlineInput.type} depth={depth + 1} onSubmit={onInlineSubmit} onCancel={onInlineCancel} defaultValue={inlineInput.type === "file" ? "newfile" : "newfolder"} />}
             {folderUploadProgress?.[node.id] && (
-              <div className="upload-progress-bar folder-progress" style={{ marginLeft: `${(depth + 1) * 18 + 12}px` }}>
+              <div className="upload-progress-bar folder-progress" style={{ marginLeft: `${(depth + 1) * 8 + 8}px` }}>
                 <div className="upload-progress-fill" style={{ width: `${(folderUploadProgress[node.id].current / folderUploadProgress[node.id].total) * 100}%` }} />
                 <span className="upload-progress-text">
                   {folderUploadProgress[node.id].current}/{folderUploadProgress[node.id].total}
@@ -207,32 +161,7 @@ const ExplorerNode = memo(({
               </div>
             )}
             {sortNodes(node.children)?.map((child) => (
-              <ExplorerNode
-                key={child.id}
-                node={child}
-                depth={depth + 1}
-                tree={tree}
-                expandedFolders={expandedFolders}
-                onToggleFolder={onToggleFolder}
-                onFileSelect={onFileSelect}
-                activeFileId={activeFileId}
-                onSelectFolder={onSelectFolder}
-                selectedFolderId={selectedFolderId}
-                inlineInput={inlineInput}
-                onInlineSubmit={onInlineSubmit}
-                onInlineCancel={onInlineCancel}
-                onContextMenu={onContextMenu}
-                renameNode={renameNode}
-                onRenameSubmit={onRenameSubmit}
-                onRenameCancel={onRenameCancel}
-                onMoveItem={onMoveItem}
-                onUploadFiles={onUploadFiles}
-                dragState={dragState}
-                setDragState={setDragState}
-                clipboard={clipboard}
-                folderUploadProgress={folderUploadProgress}
-                setFolderUploadProgress={setFolderUploadProgress}
-              />
+              <ExplorerNode key={child.id} node={child} depth={depth + 1} tree={tree} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} onFileSelect={onFileSelect} activeFileId={activeFileId} onSelectFolder={onSelectFolder} selectedFolderId={selectedFolderId} inlineInput={inlineInput} onInlineSubmit={onInlineSubmit} onInlineCancel={onInlineCancel} onContextMenu={onContextMenu} renameNode={renameNode} onRenameSubmit={onRenameSubmit} onRenameCancel={onRenameCancel} onMoveItem={onMoveItem} onUploadFiles={onUploadFiles} dragState={dragState} setDragState={setDragState} clipboard={clipboard} folderUploadProgress={folderUploadProgress} setFolderUploadProgress={setFolderUploadProgress} />
             ))}
           </div>
         )}
@@ -245,25 +174,14 @@ const ExplorerNode = memo(({
     return <RenameInput type="file" depth={depth} onSubmit={onRenameSubmit} onCancel={onRenameCancel} defaultValue={node.name} />;
   }
 
-  const fileClassName = [
-    'sidebar-file',
-    activeFileId === node.id && 'active',
-    isDragging && 'dragging',
-    isCut && 'cut',
-  ].filter(Boolean).join(' ');
+  const fileClassName = ["sidebar-file", activeFileId === node.id && "active", isDragging && "dragging", isCut && "cut"].filter(Boolean).join(" ");
 
   return (
-    <button
-      className={fileClassName}
-      type="button"
-      onClick={() => onFileSelect(node.id)}
-      style={{ paddingLeft: `${indent + 40}px` }}
-      {...sharedProps}
-    >
+    <button className={fileClassName} type="button" onClick={() => onFileSelect(node.id)} style={{ paddingLeft: `${indent + 32}px` }} {...sharedProps}>
       <span className="sidebar-node-icon">
-        <FileIconImg filename={node.name} size={16} />
+        <FileIconImg filename={node.name} size={18} />
       </span>
-      <span className={`sidebar-node-label ${isCut ? 'cut-label' : ''}`}>{node.name}</span>
+      <span className={`sidebar-node-label ${isCut ? "cut-label" : ""}`}>{node.name}</span>
     </button>
   );
 });

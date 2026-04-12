@@ -102,23 +102,22 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
           onMessage: (msg) => {
             console.log("[Terminal] WebSocket message received:", msg);
 
-            // Handle file tree updates from backend
-            if (msg.type === "fileTreeUpdate") {
-              console.log("[Terminal] Processing fileTreeUpdate:", msg.content);
-              try {
-                const nodes = JSON.parse(msg.content);
-                console.log("[Terminal] Parsed fileTreeUpdate nodes:", nodes);
-                onFileTreeUpdate?.(nodes, sessionId);
-              } catch (e) {
-                console.error("[Terminal] Failed to parse fileTreeUpdate:", e);
-              }
-              return;
-            }
+
 
             // Filter out decorative backend messages
             const decorativePatterns = [/Executing:/i, /Command completed successfully/i, /Connected to build server/i, /Session:/i, /Sending to build server/i];
             const isDecorative = decorativePatterns.some((pattern) => pattern.test(msg.content));
             if (isDecorative) return;
+
+            if (msg.type === "fileTreeUpdate" && onFileTreeUpdate) {
+              try {
+                const tree = JSON.parse(msg.content);
+                onFileTreeUpdate(tree);
+              } catch (e) {
+                console.error("Failed to parse file tree update:", e);
+              }
+              return;
+            }
 
             const className = msg.type === "error" ? "error" : msg.type === "info" ? "info" : "output";
             setHistory((prev) => [...prev, { type: className, content: msg.content }]);
@@ -138,7 +137,7 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
         setIsRunning(false);
       }
     },
-    [treeData, fileContents, onFileTreeUpdate],
+    [treeData, fileContents],
   );
 
   /* ─── Command execution ─── */
@@ -268,15 +267,24 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
       } else if (e.key === "l" && e.ctrlKey) {
         e.preventDefault();
         setHistory([]);
-      } else if (e.key === "c" && e.ctrlKey && isRunning) {
-        // Ctrl+C to cancel running command
-        e.preventDefault();
-        if (wsCleanupRef.current) {
-          wsCleanupRef.current();
-          wsCleanupRef.current = null;
+      } else if (e.key === "c" && e.ctrlKey) {
+        // Selection-aware Ctrl+C
+        const selection = window.getSelection()?.toString();
+        if (selection) {
+          // Allow browser default copy behavior
+          return;
         }
-        setIsRunning(false);
-        setHistory((prev) => [...prev, { type: "error", content: "^C — cancelled" }]);
+
+        if (isRunning) {
+          // Ctrl+C to cancel running command only if no text is selected
+          e.preventDefault();
+          if (wsCleanupRef.current) {
+            wsCleanupRef.current();
+            wsCleanupRef.current = null;
+          }
+          setIsRunning(false);
+          setHistory((prev) => [...prev, { type: "error", content: "^C — cancelled" }]);
+        }
       }
     },
     [input, historyIndex, commandHistory, handleExecute, isRunning],
@@ -294,6 +302,30 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
   );
 
   /* ─── Render helpers ─── */
+
+  const renderContentWithLinks = (content) => {
+    if (typeof content !== "string") return content;
+
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            className="terminal-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
 
   const getLineClassName = (entry) => {
     if (entry.type === "command") return "terminal-line command";
@@ -330,7 +362,7 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
                     <span className="terminal-prompt-command">{entry.content}</span>
                   </span>
                 )}
-                {entry.type !== "command" && <pre className="terminal-output">{entry.content}</pre>}
+                {entry.type !== "command" && <pre className="terminal-output">{renderContentWithLinks(entry.content)}</pre>}
               </div>
             ))}
             {!isRunning && (

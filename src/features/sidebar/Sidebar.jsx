@@ -1,15 +1,16 @@
 import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { loadState, saveStateSection } from "../../utils/storage";
-import { findParentId } from "../workspace/workspaceUtils";
+import { findParentId, getNodeFromTree, sortNodes } from "../workspace/workspaceUtils";
 import ExplorerNode from "./ExplorerNode";
+import InlineInput from "./InlineInput";
 import ContextMenu from "./ContextMenu";
 
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 600;
-const COLLAPSE_THRESHOLD = 100;
+const MIN_WIDTH = 260;
+const MAX_WIDTH = 1200;
+const COLLAPSE_THRESHOLD = 120;
 
 const ActionButton = memo(({ icon, onClick, title }) => (
-  <button className="sidebar-action" type="button" onClick={onClick} title={title}>
+  <button className="sidebar-action" type="button" onClick={onClick} data-tooltip={title}>
     {icon}
   </button>
 ));
@@ -21,8 +22,21 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
   const root = tree?.[0];
   const persistedSidebarState = useMemo(() => loadState()?.sidebar, []);
 
-  const [width, setWidth] = useState(() => persistedSidebarState?.width || 280);
+  const [width, setWidth] = useState(() => {
+    const savedWidth = persistedSidebarState?.width || 340;
+    // Upgrade if the saved width is still the old "cramped" default
+    if (savedWidth < 300) return 340;
+    return savedWidth < MIN_WIDTH ? MIN_WIDTH : savedWidth;
+  });
   const [isCollapsed, setIsCollapsed] = useState(() => persistedSidebarState?.isCollapsed ?? false);
+  const lastWidth = useRef(width >= MIN_WIDTH ? width : 340);
+
+  // Update lastWidth whenever width changes and it's not collapsed
+  useEffect(() => {
+    if (!isCollapsed && width >= MIN_WIDTH) {
+      lastWidth.current = width;
+    }
+  }, [width, isCollapsed]);
   const [isDragging, setIsDragging] = useState(false);
   const [inlineInput, setInlineInput] = useState(null);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
@@ -41,7 +55,9 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
 
   // Persist sidebar state
   useEffect(() => {
-    saveStateSection("sidebar", { width, isCollapsed });
+    // If collapsed, we save the lastWidth ref value so it's remembered upon refresh
+    const widthToSave = isCollapsed ? lastWidth.current : width;
+    saveStateSection("sidebar", { width: widthToSave, isCollapsed });
   }, [width, isCollapsed]);
 
   /* ─── Resize handlers ─── */
@@ -107,7 +123,8 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
   const toggleCollapse = useCallback(() => {
     if (isCollapsed) {
       setIsCollapsed(false);
-      setWidth(280);
+      // Ensure we open to at least 340px to avoid the 'cramped' feeling
+      setWidth(Math.max(340, lastWidth.current));
     } else {
       setIsCollapsed(true);
       setWidth(48);
@@ -116,17 +133,61 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
 
   /* ─── Inline input handlers ─── */
 
-  const handleStartNewFile = useCallback(() => {
-    const targetFolder = selectedFolderId || root?.id;
-    if (targetFolder && !expandedFolders.has(targetFolder)) onToggleFolder(targetFolder);
-    setInlineInput({ type: "file", parentId: targetFolder });
-  }, [selectedFolderId, root, expandedFolders, onToggleFolder]);
+  const handleStartNewFile = useCallback((forcedTargetId) => {
+    // 1. Resolve target: forced Id > current selection > project root
+    let targetFolder = forcedTargetId || selectedFolderId || root?.id;
+    
+    // 2. Clear context menu immediately
+    setContextMenu(null);
 
-  const handleStartNewFolder = useCallback(() => {
-    const targetFolder = selectedFolderId || root?.id;
-    if (targetFolder && !expandedFolders.has(targetFolder)) onToggleFolder(targetFolder);
-    setInlineInput({ type: "folder", parentId: targetFolder });
-  }, [selectedFolderId, root, expandedFolders, onToggleFolder]);
+    // 3. Resolve parent folder if a file was targeted
+    if (targetFolder && tree) {
+      const node = getNodeFromTree(tree, targetFolder);
+      if (node && node.type === "file") {
+        const parentId = findParentId(tree, targetFolder);
+        if (parentId) targetFolder = parentId;
+      }
+    }
+
+    // 4. Fallback to root (essential for flattened view)
+    if (!targetFolder && root) targetFolder = root.id;
+
+    if (targetFolder) {
+      if (!expandedFolders.has(targetFolder)) onToggleFolder(targetFolder, true);
+      // Use setTimeout to ensure the render has happened before focus
+      setTimeout(() => {
+        setInlineInput({ type: "file", parentId: targetFolder });
+      }, 0);
+    }
+  }, [selectedFolderId, root, tree, expandedFolders, onToggleFolder]);
+
+  const handleStartNewFolder = useCallback((forcedTargetId) => {
+    // 1. Resolve target
+    let targetFolder = forcedTargetId || selectedFolderId || root?.id;
+    
+    // 2. Clear context menu immediately
+    setContextMenu(null);
+
+    // 3. Resolve parent folder if a file was targeted
+    if (targetFolder && tree) {
+      const node = getNodeFromTree(tree, targetFolder);
+      if (node && node.type === "file") {
+        const parentId = findParentId(tree, targetFolder);
+        if (parentId) targetFolder = parentId;
+      }
+    }
+
+    // 4. Fallback to root
+    if (!targetFolder && root) targetFolder = root.id;
+
+    if (targetFolder) {
+      if (!expandedFolders.has(targetFolder)) onToggleFolder(targetFolder, true);
+      // Use setTimeout to ensure the render has happened before focus
+      setTimeout(() => {
+        setInlineInput({ type: "folder", parentId: targetFolder });
+      }, 0);
+    }
+  }, [selectedFolderId, root, tree, expandedFolders, onToggleFolder]);
 
   const handleInlineSubmit = useCallback(
     (name) => {
@@ -180,9 +241,30 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
         nodeName: node.name,
         nodePath: getNodePath(node),
       });
-      setPasteTargetFolder(node.type === "folder" ? node.id : null);
+      // If right clicking on a file, the paste target should be its parent
+      setPasteTargetFolder(node.type === "folder" ? node.id : findParentId(tree, node.id));
     },
-    [getNodePath],
+    [getNodePath, tree],
+  );
+
+  const handleBodyContextMenu = useCallback(
+    (e) => {
+      // Only show global menu if clicking on the body itself, not bubble-up from nodes
+      if (e.target.classList.contains("sidebar-body")) {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          nodeId: root?.id,
+          nodeType: "folder",
+          nodeName: root?.name,
+          nodePath: "",
+        });
+        setPasteTargetFolder(root?.id);
+      }
+    },
+    [root],
   );
 
   const handleCloseContextMenu = useCallback(() => setContextMenu(null), []);
@@ -261,7 +343,10 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
   const handlePasteClick = useCallback(() => {
     const targetId = pasteTargetFolder || selectedFolderId || root?.id;
     if (targetId && onPasteItem) {
-      onPasteItem(targetId);
+      const result = onPasteItem(targetId);
+      if (result?.error === "COLLISION") {
+        setRenameError(result.message);
+      }
       setPasteTargetFolder(null);
     }
     setContextMenu(null);
@@ -304,7 +389,10 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
         e.preventDefault();
         const pasteTarget = pasteTargetFolder || selectedFolderId || root?.id;
         if (onPasteItem && pasteTarget && clipboard?.nodeId) {
-          onPasteItem(pasteTarget);
+          const result = onPasteItem(pasteTarget);
+          if (result?.error === "COLLISION") {
+            setRenameError(result.message);
+          }
         }
       }
     };
@@ -317,10 +405,11 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
   const handleBodyDragOver = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.dataTransfer.types.includes("Files")) {
-      e.dataTransfer.dropEffect = "copy";
-      setDragOverBody(true);
-    }
+    
+    const isExternal = e.dataTransfer.types.includes("Files");
+    e.dataTransfer.dropEffect = isExternal ? "copy" : "move";
+    
+    setDragOverBody(true);
   }, []);
 
   const handleBodyDragLeave = useCallback((e) => {
@@ -335,37 +424,48 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
       e.stopPropagation();
       setDragOverBody(false);
 
-      const items = e.dataTransfer.items || e.dataTransfer.files;
-      if (!items?.length || !onUploadFiles) return;
-
-      const targetFolder = selectedFolderId || root?.id;
+      const targetFolder = root?.id;
       if (!targetFolder) return;
 
-      const files = [];
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const file = item instanceof File ? item : item.getAsFile?.();
-        if (file) files.push(file);
-      }
+      const isExternal = e.dataTransfer.types.includes("Files");
 
-      setFolderUploadProgress((prev) => ({ ...prev, [targetFolder]: { current: 0, total: files.length } }));
-      for (let i = 0; i < files.length; i++) {
-        try {
-          await onUploadFiles([files[i]], targetFolder);
-        } catch (err) {
-          console.error("Upload failed:", files[i].name, err);
+      if (isExternal) {
+        const items = e.dataTransfer.items || e.dataTransfer.files;
+        if (!items?.length || !onUploadFiles) return;
+
+        const files = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const file = item instanceof File ? item : item.getAsFile?.();
+          if (file) files.push(file);
         }
-        setFolderUploadProgress((prev) => ({ ...prev, [targetFolder]: { current: i + 1, total: files.length } }));
+
+        setFolderUploadProgress((prev) => ({ ...prev, [targetFolder]: { current: 0, total: files.length } }));
+        for (let i = 0; i < files.length; i++) {
+          try {
+            await onUploadFiles([files[i]], targetFolder);
+          } catch (err) {
+            console.error("Upload failed:", files[i].name, err);
+          }
+          setFolderUploadProgress((prev) => ({ ...prev, [targetFolder]: { current: i + 1, total: files.length } }));
+        }
+        setTimeout(() => {
+          setFolderUploadProgress((prev) => {
+            const next = { ...prev };
+            delete next[targetFolder];
+            return next;
+          });
+        }, 500);
+      } else {
+        // Handle internal move to root
+        const draggedId = e.dataTransfer.getData("application/soroban-studio-node-id") || dragState?.draggingId;
+        if (draggedId && draggedId !== targetFolder) {
+          onMoveItem?.(draggedId, targetFolder);
+        }
       }
-      setTimeout(() => {
-        setFolderUploadProgress((prev) => {
-          const next = { ...prev };
-          delete next[targetFolder];
-          return next;
-        });
-      }, 500);
+      setDragState?.({ draggingId: null, dragOverId: null });
     },
-    [onUploadFiles, selectedFolderId, root],
+    [onUploadFiles, root, onMoveItem, dragState?.draggingId, setDragState],
   );
 
   const handleBodyClick = useCallback((e) => {
@@ -394,9 +494,13 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
   return (
     <div className="sidebar-wrapper" ref={sidebarRef}>
       <aside className={`sidebar ${isCollapsed ? "collapsed" : ""} ${isDragging ? "resizing" : ""}`} style={{ width: isCollapsed ? 48 : width }}>
-        {/* Collapsed view */}
-        <div className="sidebar-collapsed-view">
-          <button className="sidebar-collapsed-btn" onClick={toggleCollapse} title="Expand Explorer">
+        {/* Persistent Activity Bar (Leftmost) */}
+        <div className="sidebar-activity-bar">
+          <button 
+            className={`activity-btn ${!isCollapsed ? "active" : ""}`} 
+            onClick={toggleCollapse} 
+            title={isCollapsed ? "Expand Explorer" : "Collapse Explorer"}
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -407,60 +511,121 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
           </button>
         </div>
 
-        {/* Normal view */}
-        <div className="sidebar-header">
-          <div className="sidebar-title">Explorer</div>
-          <div className="sidebar-actions">
-            <ActionButton
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              }
-              onClick={handleStartNewFile}
-              title="New File"
-            />
-            <ActionButton
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  <line x1="12" y1="11" x2="12" y2="17" />
-                  <line x1="9" y1="14" x2="15" y2="14" />
-                </svg>
-              }
-              onClick={handleStartNewFolder}
-              title="New Folder"
-            />
-            <ActionButton
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-              }
-              onClick={handleUploadClick}
-              title="Upload Files"
-            />
-            <input ref={fileInputRef} type="file" multiple style={{ display: "none" }} onChange={handleFileSelect} />
-            <ActionButton
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 14h6v6H4zM4 4h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6z" />
-                </svg>
-              }
-              onClick={onCollapseAll}
-              title="Collapse All"
-            />
-          </div>
-        </div>
-
-        <div className={`sidebar-body ${dragOverBody ? "drag-over-external" : ""}`} onClick={handleBodyClick} onDragOver={handleBodyDragOver} onDragLeave={handleBodyDragLeave} onDrop={handleBodyDrop}>
+        {/* Collapsible Panel Section (Right of Activity Bar) */}
+        <div className="sidebar-panel">
           {root ? (
             <>
-              <ExplorerNode node={root} depth={0} tree={tree} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} onFileSelect={onFileSelect} activeFileId={activeFileId} onSelectFolder={setSelectedFolderId} selectedFolderId={selectedFolderId} inlineInput={inlineInput} onInlineSubmit={handleInlineSubmit} onInlineCancel={handleInlineCancel} onContextMenu={handleContextMenu} renameNode={renameNode} onRenameSubmit={handleRenameSubmit} onRenameCancel={handleRenameCancel} onMoveItem={onMoveItem} onUploadFiles={onUploadFiles} dragState={dragState} setDragState={setDragState} clipboard={clipboard} folderUploadProgress={folderUploadProgress} setFolderUploadProgress={setFolderUploadProgress} lastSessionId={lastSessionId} setTreeData={setTreeData} />
-              <ContextMenu contextMenu={contextMenu} canPaste={canPaste} onCopy={handleCopyClick} onCut={handleCutClick} onPaste={handlePasteClick} onRename={handleRenameClick} onDelete={handleDeleteClick} onClose={handleCloseContextMenu} />
+              <div className="sidebar-header">
+                <div className="sidebar-title">Explorer</div>
+                <div className="sidebar-actions">
+                  <ActionButton
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                    }
+                    onClick={handleStartNewFile}
+                    title="New File"
+                  />
+                  <ActionButton
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        <line x1="12" y1="11" x2="12" y2="17" />
+                        <line x1="9" y1="14" x2="15" y2="14" />
+                      </svg>
+                    }
+                    onClick={handleStartNewFolder}
+                    title="New Folder"
+                  />
+                  <ActionButton
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                    }
+                    onClick={handleUploadClick}
+                    title="Upload Files"
+                  />
+                  <input ref={fileInputRef} type="file" multiple style={{ display: "none" }} onChange={handleFileSelect} />
+                  <ActionButton
+                    icon={
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 14h6v6H4zM4 4h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6z" />
+                      </svg>
+                    }
+                    onClick={onCollapseAll}
+                    title="Collapse All"
+                  />
+                </div>
+              </div>
+
+              <div className={`sidebar-body ${dragOverBody ? "drag-over-external" : ""}`} onClick={handleBodyClick} onDragOver={handleBodyDragOver} onDragLeave={handleBodyDragLeave} onDrop={handleBodyDrop} onContextMenu={handleBodyContextMenu}>
+                {(() => {
+                  const sortedChildren = sortNodes(root.children) || [];
+                  const folders = sortedChildren.filter((n) => n.type === "folder");
+                  const files = sortedChildren.filter((n) => n.type === "file");
+
+                  const renderExplorerNode = (child) => (
+                    <ExplorerNode
+                      key={child.id}
+                      node={child}
+                      depth={0}
+                      tree={tree}
+                      expandedFolders={expandedFolders}
+                      onToggleFolder={onToggleFolder}
+                      onFileSelect={onFileSelect}
+                      activeFileId={activeFileId}
+                      onSelectFolder={setSelectedFolderId}
+                      selectedFolderId={selectedFolderId}
+                      inlineInput={inlineInput}
+                      onInlineSubmit={handleInlineSubmit}
+                      onInlineCancel={handleInlineCancel}
+                      onContextMenu={handleContextMenu}
+                      renameNode={renameNode}
+                      onRenameSubmit={handleRenameSubmit}
+                      onRenameCancel={handleRenameCancel}
+                      onMoveItem={onMoveItem}
+                      onUploadFiles={onUploadFiles}
+                      dragState={dragState}
+                      setDragState={setDragState}
+                      clipboard={clipboard}
+                      folderUploadProgress={folderUploadProgress}
+                      setFolderUploadProgress={setFolderUploadProgress}
+                      lastSessionId={lastSessionId}
+                      setTreeData={setTreeData}
+                    />
+                  );
+
+                  return (
+                    <>
+                      {inlineInput?.parentId === root.id && inlineInput.type === "folder" && (
+                        <InlineInput type="folder" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfolder" />
+                      )}
+                      {folders.map(renderExplorerNode)}
+                      {inlineInput?.parentId === root.id && inlineInput.type === "file" && (
+                        <InlineInput type="file" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfile" />
+                      )}
+                      {files.map(renderExplorerNode)}
+                    </>
+                  );
+                })()}
+                <ContextMenu
+                  contextMenu={contextMenu} 
+                  canPaste={!!clipboard} 
+                  onCopy={handleCopyClick} 
+                  onCut={handleCutClick} 
+                  onPaste={handlePasteClick} 
+                  onRename={handleRenameClick} 
+                  onDelete={handleDeleteClick} 
+                  onNewFile={() => handleStartNewFile(contextMenu.nodeId)}
+                  onNewFolder={() => handleStartNewFolder(contextMenu.nodeId)}
+                  onClose={handleCloseContextMenu} 
+                />
+              </div>
             </>
           ) : (
             <div className="sidebar-empty">No workspace loaded</div>

@@ -255,3 +255,15 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ─── Links ─── */
+
+.terminal-link {
+  color: #4fc1ff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.terminal-link:hover {
+  text-decoration: underline;
+}

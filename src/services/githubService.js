@@ -11,15 +11,27 @@ const GITHUB_API_BASE = "https://api.github.com";
  * @returns {{owner: string, repo: string} | null}
  */
 export const parseGithubUrl = (url) => {
-  // Handle various GitHub URL formats
-  const patterns = [/^https:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?\/?$/, /^git@github\.com:([^\/]+)\/([^\/]+?)\.git$/, /^github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?\/?$/, /^([^\/]+)\/([^\/]+?)$/];
+  if (!url || typeof url !== "string") return null;
 
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) {
-      return { owner: match[1], repo: match[2] };
-    }
-  }
+  // Clean up the URL first (remove trailing slashes, .git suffix)
+  let cleanUrl = url.trim().replace(/\/+$/, "").replace(/\.git$/, "");
+
+  // Try to extract owner and repo from various formats
+  // 1. Full HTTPS: https://github.com/owner/repo/...
+  const httpsMatch = cleanUrl.match(/^https?:\/\/(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)/);
+  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
+
+  // 2. SSH: git@github.com:owner/repo
+  const sshMatch = cleanUrl.match(/^git@github\.com:([^\/]+)\/([^\/]+)/);
+  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
+
+  // 3. Simple format: github.com/owner/repo
+  const domainMatch = cleanUrl.match(/^github\.com\/([^\/]+)\/([^\/]+)/);
+  if (domainMatch) return { owner: domainMatch[1], repo: domainMatch[2] };
+
+  // 4. Short format: owner/repo
+  const shortMatch = cleanUrl.match(/^([^\/]+)\/([^\/]+)$/);
+  if (shortMatch) return { owner: shortMatch[1], repo: shortMatch[2] };
 
   return null;
 };
@@ -42,12 +54,12 @@ export const fetchRepoContents = async (owner, repo, path = "") => {
 
   if (!response.ok) {
     if (response.status === 403) {
-      throw new Error("Rate limit exceeded. Please try again later or use a personal access token.");
+      throw new Error("GitHub API rate limit exceeded. Please try again later.");
     }
     if (response.status === 404) {
-      throw new Error("Repository not found. Please check the URL.");
+      throw new Error(`Path "${path || "root"}" not found in repository.`);
     }
-    throw new Error(`GitHub API error: ${response.statusText}`);
+    throw new Error(`GitHub API error: ${response.statusText} (${response.status})`);
   }
 
   const data = await response.json();
@@ -145,6 +157,11 @@ const buildRepoTreeRecursive = async (owner, repo, path, uniqueId) => {
       }
     }
   } catch (err) {
+    // If it's the root path, we should throw the error so the clone operation fails
+    // rather than returning an empty workspace
+    if (path === "") {
+      throw err;
+    }
     console.warn(`Failed to fetch contents for path ${path}:`, err);
   }
 
@@ -171,7 +188,13 @@ export const cloneRepository = async (githubUrl, uniqueId) => {
   });
 
   if (!repoInfoResponse.ok) {
-    throw new Error(`Failed to fetch repository info: ${repoInfoResponse.statusText}`);
+    if (repoInfoResponse.status === 404) {
+      throw new Error(`Repository "${owner}/${repo}" not found. Please check the URL.`);
+    }
+    if (repoInfoResponse.status === 403) {
+      throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    }
+    throw new Error(`Failed to fetch repository info: ${repoInfoResponse.statusText} (${repoInfoResponse.status})`);
   }
 
   const repoInfo = await repoInfoResponse.json();

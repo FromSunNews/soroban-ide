@@ -133,28 +133,4 @@ export const connectBuildStream = (sessionId, { onMessage, onError, onDone, onCl
   };
 };
 
-/**
- * Lazy-load folder contents from the backend.
- * Used when user clicks a folder marked as lazy (e.g. node_modules, target).
- *
- * @param {string} sessionId - Active session
- * @param {string} path - Relative path inside the workspace
- * @returns {Promise<Array>} Array of FileTreeNode objects
- */
-export const fetchFolderContents = async (sessionId, path) => {
-  const params = new URLSearchParams({ session_id: sessionId, path });
-  const response = await fetch(`${API_BASE}/files?${params}`);
 
-  if (!response.ok) {
-    const text = await response.text();
-    let message;
-    try {
-      message = JSON.parse(text).error;
-    } catch {
-      message = text;
-    }
-    throw new Error(message || `Failed to load folder: ${response.status}`);
-  }
-
-  return response.json();
-};

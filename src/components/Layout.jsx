@@ -5,7 +5,7 @@ import { collectProjectFiles, submitCommand, connectBuildStream } from "../servi
 import { useWorkspaceState, useTabManager } from "../features/workspace/workspaceHooks";
 import { FileIconImg, FolderIconImg } from "../components/icons/FileIcon";
 import { ChevronDown, ChevronRight } from "../components/icons/ChevronIcons";
-import { sortNodes, uniqueId } from "../features/workspace/workspaceUtils";
+import { sortNodes, uniqueId, ensureTreeIds } from "../features/workspace/workspaceUtils";
 import { Plus, FolderOpen, FileText, X, Menu } from "lucide-react";
 import Sidebar from "../features/sidebar/Sidebar";
 import Tabs from "../features/tabs/Tabs";
@@ -30,6 +30,8 @@ const Layout = () => {
   const [cloneStatus, setCloneStatus] = useState(null);
   const [lastSessionId, setLastSessionId] = useState(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
   const createMenuRef = useRef(null);
   const setFileContentsRef = useRef(workspace.setFileContents);
   const previewTabIdRef = useRef(tabManager.previewTabId);
@@ -47,6 +49,7 @@ const Layout = () => {
   useEffect(() => {
     activeFileIdRef.current = tabManager.activeFileId;
   }, [tabManager.activeFileId]);
+  
 
   // Derived state
   const activeFile = tabManager.activeFileId ? workspace.flattenedNodes.get(tabManager.activeFileId) : null;
@@ -175,203 +178,85 @@ const Layout = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Convert backend FileTreeNode → workspace tree node format
-  const convertBackendNodes = useCallback((backendNodes) => {
-    return backendNodes.map((bn) => {
-      const node = {
-        id: uniqueId(),
-        name: bn.name,
-        type: bn.type === "folder" ? "folder" : "file",
-        children: bn.children?.length ? convertBackendNodes(bn.children) : [],
-        lazy: bn.lazy || false,
-      };
-
-      // Debug log for lazy folders
-      if (bn.lazy) {
-        console.log("[Layout] converting lazy folder:", bn.name, "children:", bn.children?.length || 0);
-      }
-
-      return node;
-    });
+  // Create project handlers
+  const handleOpenCreateProject = useCallback(() => {
+    setShowCreateDialog(true);
+    setShowCreateMenu(false);
+    setNewProjectName("");
   }, []);
 
-  // Handle file tree update from backend (after command execution)
-  const handleFileTreeUpdate = useCallback(
-    (backendNodes, sessionId) => {
-      console.log("[Layout] === FILE TREE UPDATE RECEIVED ===");
-      console.log("[Layout] backendNodes:", backendNodes);
-
-      const newChildren = convertBackendNodes(backendNodes);
-      console.log("[Layout] converted newChildren:", newChildren);
-
-      // Build file contents map from backend nodes
-      const newFileContents = {};
-      const extractContents = (nodes, path = "") => {
-        nodes.forEach((node) => {
-          const fullPath = path ? `${path}/${node.name}` : node.name;
-          if (node.type === "file" && node.content !== undefined) {
-            newFileContents[fullPath] = node.content;
-          }
-          if (node.children) {
-            extractContents(node.children, fullPath);
-          }
-        });
-      };
-      extractContents(backendNodes);
-      console.log("[Layout] extracted file contents:", Object.keys(newFileContents));
-
-      // Replace workspace root with Soroban project
-      workspace.setTreeData((prevTree) => {
-        const root = prevTree[0];
-        if (!root) return prevTree;
-
-        // Create completely new root with project children
-        const newRoot = {
-          ...root,
-          children: newChildren,
-          id: uniqueId(), // Force new ID to trigger re-render
-        };
-
-        console.log("[Layout] new root with children:", newRoot);
-        return [newRoot];
-      });
-
-      // Update file contents
-      if (Object.keys(newFileContents).length > 0) {
-        workspace.setFileContents(newFileContents);
-        console.log("[Layout] file contents updated");
-      }
-
-      setLastSessionId(sessionId);
-      console.log("[Layout] === FILE TREE UPDATE COMPLETED ===");
-    },
-    [workspace, convertBackendNodes],
-  );
-
-  // Create project handlers
-  const handleCreateHelloWorld = useCallback(async () => {
+  const handleCreateProject = useCallback(async (forcedName) => {
+    const name = forcedName || newProjectName.trim() || "my-soroban-project";
     try {
-      console.log("[Layout] === STARTING CREATE HELLO WORLD ===");
-      console.log("[Layout] Current treeData before clear:", workspace.treeData);
-      console.log("[Layout] Current fileContents before clear:", workspace.fileContents);
-
       setIsCreatingProject(true);
-      setShowCreateMenu(false);
+      setShowCreateDialog(false);
 
-      // Clear all existing state from localStorage and backend
-      clearState();
+      // We don't create locally anymore, we let the backend 'init' and send us the tree
+      // But we clear existing tabs/state for a fresh start
       tabManager.resetTabs();
-
-      // Reset workspace to empty state immediately
-      console.log("[Layout] Resetting workspace to empty...");
-      workspace.setTreeData([
-        {
-          id: uniqueId(),
-          name: "workspace",
-          type: "folder",
-          children: [],
-        },
-      ]);
       workspace.setFileContents({});
 
-      console.log("[Layout] Workspace reset complete");
-      console.log("[Layout] New treeData after reset:", workspace.treeData);
+      // Run stellar contract init on backend
+      const sessionId = await submitCommand({}, `stellar contract init ${name}`);
+      setLastSessionId(sessionId);
 
-      // Small delay to ensure state reset completes
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Create minimal workspace structure for backend
-      const files = {
-        "README.md": "# Soroban Project\n\nCreated with Soroban Studio",
-      };
-
-      console.log("[Layout] Sending files to backend:", files);
-
-      // Run stellar contract init command to create hello world project
-      const sessionId = await submitCommand(files, "stellar contract init soroban-hello-world");
-
-      console.log("[Layout] Got sessionId:", sessionId);
-
-      // Connect to WebSocket to stream output and update file tree
-      const cleanup = connectBuildStream(sessionId, {
+      // Connect specifically to this init session to get the resulting file tree
+      connectBuildStream(sessionId, {
         onMessage: (msg) => {
-          console.log("[Layout] === WEBSOCKET MESSAGE ===");
-          console.log("[Layout] msg.type:", msg.type);
-          console.log("[Layout] msg.content:", msg.content);
-          console.log("[Layout] full msg:", msg);
-
-          // Handle file tree updates from backend
           if (msg.type === "fileTreeUpdate") {
-            console.log("[Layout] === FILE TREE UPDATE DETECTED ===");
             try {
-              let nodes;
-              if (typeof msg.content === "string") {
-                nodes = JSON.parse(msg.content);
-              } else {
-                nodes = msg.content || msg.data;
-              }
-              console.log("[Layout] parsed nodes:", nodes);
-              console.log("[Layout] calling handleFileTreeUpdate...");
-              handleFileTreeUpdate(nodes, sessionId);
-              console.log("[Layout] handleFileTreeUpdate called successfully");
-              // File tree update means command completed successfully
-              setIsCreatingProject(false);
-              console.log("[Layout] loading stopped via fileTreeUpdate");
-              cleanup();
+              const rawTree = JSON.parse(msg.content);
+              handleFileTreeUpdate(rawTree);
             } catch (e) {
-              console.error("[Layout] === ERROR parsing fileTreeUpdate ===:", e);
+              console.error("Failed to parse file tree update:", e);
             }
           }
-
-          // Check for various completion signals from backend output
-          if (msg.type === "output" || msg.type === "stdout") {
-            const content = msg.content || msg.data || "";
-            console.log("[Layout] output content:", content);
-            if (content.includes("Command completed successfully") || content.includes("soroban-hello-world") || content.includes("Project created") || content.includes("✓") || content.includes("Initialized") || content.includes("Created")) {
-              setIsCreatingProject(false);
-              console.log("[Layout] loading stopped via output signal");
-            }
-          }
-
-          // Check for done signal from backend
-          if (msg.type === "done") {
-            console.log("[Layout] === DONE SIGNAL RECEIVED ===");
-            setIsCreatingProject(false);
-            cleanup();
-          }
         },
-        onError: (error) => {
-          console.error("[Layout] Hello World creation error:", error);
-          setIsCreatingProject(false);
-        },
-        onDone: () => {
-          console.log("[Layout] Hello World onDone callback triggered");
-          setIsCreatingProject(false);
-        },
-        onClose: () => {
-          console.log("[Layout] Hello World WebSocket closed - command finished");
+        onDone: () => setIsCreatingProject(false),
+        onError: (err) => {
+          console.error("Init project error:", err);
           setIsCreatingProject(false);
         },
       });
     } catch (error) {
-      console.error("Failed to create Hello World project:", error);
+      console.error("Failed to create project:", error);
       setIsCreatingProject(false);
-      // Fallback to frontend template if backend fails
-      clearState();
-      workspace.createProject("hello-world");
-      tabManager.resetTabs();
-      setShowCreateMenu(false);
     }
-  }, [workspace, tabManager, handleFileTreeUpdate]);
+  }, [newProjectName, workspace, tabManager]);
 
-  // ... (rest of the code remains the same)
-  const handleCreateBlank = useCallback(() => {
-    // Clear all existing state before creating blank project
-    clearState();
-    workspace.createProject("blank");
-    tabManager.resetTabs();
-    setShowCreateMenu(false);
-  }, [workspace, tabManager]);
+  const handleFileTreeUpdate = useCallback(
+    (newTree) => {
+      const treeWithIds = ensureTreeIds(newTree);
+
+      // Extract contents from the tree to update workspace cache
+      const contents = {};
+      const extract = (nodes) => {
+        nodes.forEach((node) => {
+          if (node.type === "file" && node.content !== undefined) {
+            contents[node.id] = node.content;
+          }
+          if (node.children?.length) extract(node.children);
+        });
+      };
+      extract(treeWithIds);
+
+      if (Object.keys(contents).length > 0) {
+        workspace.setFileContents((prev) => ({ ...prev, ...contents }));
+      }
+
+      workspace.setTreeData(treeWithIds);
+      setIsCreatingProject(false);
+    },
+    [workspace],
+  );
+
+  // Auto-trigger Create Project on first-time initialization
+  useEffect(() => {
+    const state = loadState();
+    if (!state?.workspace) {
+      handleCreateProject("hello-world");
+    }
+  }, [handleCreateProject]);
 
   const handleOpenGithubClone = useCallback(() => {
     setShowGithubClone(true);
@@ -398,42 +283,6 @@ const Layout = () => {
     }
   }, [githubUrl, workspace, tabManager]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (event) => {
-      const target = event.target;
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.contentEditable === "true";
-      if (isInput) return;
-
-      const key = event.key.toLowerCase();
-      if (key === "s" && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault();
-        if (tabManager.previewTabId && tabManager.previewTabId === tabManager.activeFileId) {
-          tabManager.setPreviewTabId(null);
-        }
-      }
-      if (key === "w" && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (tabManager.activeFileId) tabManager.closeTab(tabManager.activeFileId);
-        return false;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [tabManager]);
-
-  // Close create menu clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (createMenuRef.current && !createMenuRef.current.contains(e.target)) {
-        setShowCreateMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   return (
     <div className="app-shell">
       <div className="app-main">
@@ -445,7 +294,7 @@ const Layout = () => {
             <div className="project-creation-content">
               <div className="loading-spinner"></div>
               <div className="loading-text">Creating Soroban Project...</div>
-              <div className="loading-subtext">Running: stellar contract init soroban-hello-world</div>
+              <div className="loading-subtext">Running: stellar contract init {newProjectName || "project"}</div>
             </div>
           </div>
         )}
@@ -464,19 +313,12 @@ const Layout = () => {
               </button>
               {showCreateMenu && (
                 <div className="create-new-dropdown">
-                  <div className="create-new-item" onClick={handleCreateHelloWorld}>
+                  <div className="create-new-item" onClick={handleOpenCreateProject}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
-                    Create Soroban Project
-                  </div>
-                  <div className="create-new-item" onClick={handleCreateBlank}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                      <polyline points="13 2 13 9 20 9" />
-                    </svg>
-                    Create Blank
+                    Create Project
                   </div>
                   <div className="create-new-item" onClick={handleOpenGithubClone}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -493,7 +335,6 @@ const Layout = () => {
             <Editor fileId={tabManager.activeFileId} filePath={activeFile?.path} content={activeContent} language={language} onChange={handleEditorChange} onCursorChange={handleCursorChange} />
           </div>
 
-          {/* ─── File Tree Update Handler ─── */}
           <Terminal activeFileName={activeFile?.path} treeData={workspace.treeData} fileContents={workspace.fileContents} onFileTreeUpdate={handleFileTreeUpdate} />
         </div>
       </div>
@@ -516,7 +357,17 @@ const Layout = () => {
         <div className="github-clone-overlay">
           <div className="github-clone-dialog">
             <h3>Clone GitHub Repository</h3>
-            <input type="text" placeholder="https://github.com/username/repository.git" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleCloneGithub()} autoFocus />
+            <input
+              type="text"
+              placeholder="https://github.com/username/repository.git"
+              value={githubUrl}
+              onChange={(e) => {
+                setGithubUrl(e.target.value);
+                if (cloneStatus?.type === "error") setCloneStatus(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleCloneGithub()}
+              autoFocus
+            />
             {cloneStatus && <div className={`clone-status ${cloneStatus.type}`}>{cloneStatus.message}</div>}
             <div className="dialog-buttons">
               <button className="btn-cancel" onClick={() => setShowGithubClone(false)}>
@@ -524,6 +375,24 @@ const Layout = () => {
               </button>
               <button className="btn-clone" onClick={handleCloneGithub} disabled={cloneStatus?.type === "loading"}>
                 Clone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateDialog && (
+        <div className="github-clone-overlay">
+          <div className="github-clone-dialog">
+            <h3>Create New Soroban Project</h3>
+            <div className="dialog-subtitle">Specify a name for your smart contract project.</div>
+            <input type="text" placeholder="e.g., hello-soroban" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleCreateProject()} autoFocus />
+            <div className="dialog-buttons">
+              <button className="btn-cancel" onClick={() => setShowCreateDialog(false)}>
+                Cancel
+              </button>
+              <button className="btn-clone" onClick={handleCreateProject}>
+                Create Project
               </button>
             </div>
           </div>

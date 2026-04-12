@@ -34,10 +34,10 @@
 }
 
 .tab.active {
-  background: var(--active-tab-bg);
+  background: #000000;
   border-color: var(--border-color);
   color: var(--text-primary);
-  border-bottom: 1px solid var(--active-tab-bg);
+  border-bottom: 1px solid #000000;
   margin-bottom: -1px;
 }
 
@@ -71,8 +71,15 @@
     background 0.2s;
 }
 
-.tab:hover .tab-close,
+.tab:hover .tab-close {
+  opacity: 1;
+}
+
 .tab.active .tab-close {
+  opacity: 0.6;
+}
+
+.tab.active:hover .tab-close {
   opacity: 1;
 }
 

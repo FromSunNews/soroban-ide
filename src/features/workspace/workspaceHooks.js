@@ -216,8 +216,8 @@ export const useWorkspaceState = () => {
   }, []);
 
   const cloneFromGithub = useCallback(async (url) => {
-    clearState();
     const { tree, contents, repoName } = await cloneRepository(url, uniqueId);
+    clearState();
     setTreeData(tree);
     setFileContents(contents);
     setExpandedFolders(new Set([tree[0]?.id]));
@@ -361,7 +361,17 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
         return;
       }
 
-      if (clipboard.nodeId === targetParentId) return;
+      // Check for name collision in target folder
+      const targetParent = targetParentId ? flattenedNodes.get(targetParentId) : null;
+      const targetChildren = targetParent ? targetParent.children : treeData;
+      const collisionNode = targetChildren?.find((child) => child.name === sourceNode.name && child.id !== sourceNode.id);
+
+      if (collisionNode) {
+        return { 
+          error: "COLLISION", 
+          message: `A ${sourceNode.type} named "${sourceNode.name}" already exists in the target location.` 
+        };
+      }
 
       if (clipboard.operation === "copy") {
         const idMapping = {};
@@ -382,8 +392,9 @@ export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileC
         }
       } else if (clipboard.operation === "cut") {
         setTreeData((prev) => moveNodeInTree(prev, clipboard.nodeId, targetParentId));
-        setClipboard(null);
       }
+
+      setClipboard(null);
 
       setExpandedFolders((prev) => {
         const next = new Set(prev);

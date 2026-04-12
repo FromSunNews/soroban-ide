@@ -9,14 +9,15 @@
 
 .sidebar {
   width: 280px;
-  min-width: 48px;
-  max-width: 600px;
+  min-width: 48px; /* Set to 48px to allow smooth transition from collapsed state */
+  max-width: 1200px;
   background: var(--sidebar-bg);
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* Changed to horizontal */
   border-right: 1px solid var(--border-color);
-  transition: width 0.2s ease;
-  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother, more premium transition */
+  overflow: visible;
+  z-index: 10;
 }
 
 .sidebar.resizing {
@@ -28,24 +29,55 @@
   min-width: 48px !important;
 }
 
-.sidebar.collapsed .sidebar-header,
-.sidebar.collapsed .sidebar-body,
-.sidebar.collapsed .sidebar-folder,
-.sidebar.collapsed .sidebar-file {
-  display: none;
-}
-
-.sidebar.collapsed .sidebar-collapsed-view {
+.sidebar-activity-bar {
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 10px;
-  gap: 16px;
-  height: 100%;
+  padding-top: 12px;
+  background: var(--sidebar-bg);
+  z-index: 2;
 }
 
-.sidebar-collapsed-view {
-  display: none;
+.activity-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.activity-btn:hover {
+  color: var(--text-primary);
+}
+
+.activity-btn.active {
+  color: var(--text-secondary);
+  background: #000000;
+}
+
+.sidebar-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-children-content.empty-folder-drop-zone {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-collapsed-btn {
@@ -130,6 +162,7 @@
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--sidebar-bg);
+  overflow: visible;
 }
 
 .sidebar-title {
@@ -143,6 +176,7 @@
 .sidebar-actions {
   display: flex;
   gap: 4px;
+  overflow: visible;
 }
 
 .sidebar-action {
@@ -165,6 +199,39 @@
 .sidebar-action:hover {
   background: var(--hover-bg);
   color: var(--text-primary);
+}
+
+/* ─── Workspace Root Node ─── */
+
+.sidebar-root-node {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  height: 32px !important;
+  margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.sidebar-root-node:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.root-label {
+  font-weight: 700 !important;
+  letter-spacing: 0.05em;
+  font-size: 11px !important;
+  color: var(--text-primary) !important;
+}
+
+.sidebar-root-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.sidebar-root-node svg {
+  color: var(--accent) !important;
 }
 
 /* ─── Body ─── */
@@ -191,14 +258,6 @@
   display: flex;
   align-items: center;
   padding: 3px 8px;
-  opacity: 0;
-  transform: translateY(-5px);
-  animation: slideIn 0.2s ease forwards;
-}
-
-.sidebar-inline-input.visible {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .sidebar-inline-input-field {
@@ -242,6 +301,7 @@
   transition: background 0.12s ease;
   white-space: nowrap;
   overflow: hidden;
+  position: relative; /* Added to fix absolute chevron positioning */
 }
 
 .sidebar-folder:hover,
@@ -261,8 +321,8 @@
 }
 
 .sidebar-file.active {
-  background: #141414;
-  color: #ffffff;
+  background: #000000;
+  color: var(--text-primary);
 }
 
 .sidebar-file.dragging,

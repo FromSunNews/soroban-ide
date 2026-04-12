@@ -172,7 +172,7 @@ export const collectContentsMap = (node, contents, result = {}) => {
 
 export const flattenTree = (treeData) => {
   const map = new Map();
-  const traverse = (nodes, currentPath = '') => {
+  const traverse = (nodes, currentPath = "") => {
     nodes.forEach((node) => {
       const path = currentPath ? `${currentPath}/${node.name}` : node.name;
       map.set(node.id, { ...node, path });
@@ -181,4 +181,24 @@ export const flattenTree = (treeData) => {
   };
   traverse(treeData);
   return map;
+};
+
+/**
+ * Recursively ensures all nodes in the tree have a unique ID.
+ * Useful for trees returning from the backend without IDs.
+ */
+export const ensureTreeIds = (nodes) => {
+  if (!nodes) return [];
+  return nodes.map((node) => {
+    const newNode = {
+      ...node,
+      id: node.id || uniqueId(),
+    };
+    if (newNode.children?.length) {
+      newNode.children = ensureTreeIds(newNode.children);
+    } else {
+      newNode.children = [];
+    }
+    return newNode;
+  });
 };

@@ -224,6 +224,8 @@ export const useWorkspaceState = () => {
     return { tree, contents, repoName };
   }, []);
 
+  const clipboard = useClipboard(treeData, flattenedNodes, fileContents, setTreeData, setFileContents, setExpandedFolders);
+
   return {
     treeData,
     fileContents,
@@ -240,6 +242,7 @@ export const useWorkspaceState = () => {
     refreshWorkspace,
     createProject,
     cloneFromGithub,
+    clipboard,
     setFileContents,
     setTreeData,
     setExpandedFolders,
@@ -340,7 +343,7 @@ export const useTabManager = (flattenedNodes) => {
 
 /* ─── useClipboard ─── */
 
-export const useClipboard = (flattenedNodes, fileContents, setTreeData, setFileContents, setExpandedFolders) => {
+export const useClipboard = (treeData, flattenedNodes, fileContents, setTreeData, setFileContents, setExpandedFolders) => {
   const [clipboard, setClipboard] = useState(null);
 
   const copyItem = useCallback((nodeId) => {

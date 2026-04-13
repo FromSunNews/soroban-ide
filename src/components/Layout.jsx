@@ -22,7 +22,6 @@ const Layout = () => {
   const workspace = useWorkspaceState();
   const tabManager = useTabManager(workspace.flattenedNodes);
 
-  const [clipboardState, setClipboardState] = useState(null);
   const [cursorInfo, setCursorInfo] = useState({ lineNumber: 1, column: 1, selectedChars: 0 });
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [showGithubClone, setShowGithubClone] = useState(false);
@@ -32,6 +31,7 @@ const Layout = () => {
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const createMenuRef = useRef(null);
   const setFileContentsRef = useRef(workspace.setFileContents);
   const previewTabIdRef = useRef(tabManager.previewTabId);
@@ -107,40 +107,6 @@ const Layout = () => {
     setCursorInfo(info);
   }, []);
 
-  // Clipboard operations
-  const handleCopyItem = useCallback((nodeId) => {
-    setClipboardState({ nodeId, operation: "copy" });
-  }, []);
-
-  const handleCutItem = useCallback((nodeId) => {
-    setClipboardState({ nodeId, operation: "cut" });
-  }, []);
-
-  const handlePasteItem = useCallback(
-    (targetParentId) => {
-      if (!clipboardState?.nodeId || !clipboardState?.operation) return;
-
-      const sourceNode = workspace.flattenedNodes.get(clipboardState.nodeId);
-      if (!sourceNode) {
-        setClipboardState(null);
-        return;
-      }
-
-      if (clipboardState.nodeId === targetParentId) return;
-
-      if (clipboardState.operation === "copy") {
-        const idMapping = {};
-        const cloned = cloneNodeWithNewIds(sourceNode, idMapping);
-        // We need to use workspace internals for copy
-        workspace.moveItem.__treeDataSetter?.((prev) => addNodeToTree(prev, targetParentId, cloned.node));
-        // For now, just use moveItem approach — copy via addItem
-      } else if (clipboardState.operation === "cut") {
-        workspace.moveItem(clipboardState.nodeId, targetParentId);
-        setClipboardState(null);
-      }
-    },
-    [clipboardState, workspace],
-  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -161,6 +127,28 @@ const Layout = () => {
         event.stopPropagation();
         if (tabManager.activeFileId) tabManager.closeTab(tabManager.activeFileId);
         return false;
+      }
+
+      // Copy/Paste/Cut shortcuts
+      if ((event.ctrlKey || event.metaKey) && !isInput) {
+        if (key === "c" && selectedNodeId) {
+          event.preventDefault();
+          workspace.clipboard.copyItem(selectedNodeId);
+        } else if (key === "x" && selectedNodeId) {
+          event.preventDefault();
+          workspace.clipboard.cutItem(selectedNodeId);
+        } else if (key === "v") {
+          event.preventDefault();
+          // Resolve target folder
+          const selectedNode = workspace.flattenedNodes.get(selectedNodeId);
+          let targetId = workspace.rootId;
+          
+          if (selectedNode) {
+            targetId = selectedNode.type === 'folder' ? selectedNode.id : (selectedNode.parentId || workspace.rootId);
+          }
+          
+          workspace.clipboard.pasteItem(targetId);
+        }
       }
     };
     window.addEventListener("keydown", handler);
@@ -286,18 +274,42 @@ const Layout = () => {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <Sidebar tree={workspace.treeData} expandedFolders={workspace.expandedFolders} onToggleFolder={workspace.toggleFolder} onFileSelect={tabManager.selectFile} onNewFile={(name, parentId) => handleNewItem("file", name, parentId)} onNewFolder={(name, parentId) => handleNewItem("folder", name, parentId)} onDeleteItem={handleDeleteItem} onRenameItem={workspace.renameItem} onMoveItem={workspace.moveItem} onUploadFiles={workspace.uploadFiles} onCopyItem={handleCopyItem} onCutItem={handleCutItem} onPasteItem={handlePasteItem} clipboard={clipboardState} onCollapseAll={workspace.collapseAll} activeFileId={tabManager.activeFileId} lastSessionId={lastSessionId} setTreeData={workspace.setTreeData} />
+        <Sidebar 
+          tree={workspace.treeData} 
+          expandedFolders={workspace.expandedFolders} 
+          onToggleFolder={workspace.toggleFolder} 
+          onFileSelect={(id) => {
+            tabManager.selectFile(id);
+            setSelectedNodeId(id);
+          }} 
+          onNodeSelect={setSelectedNodeId}
+          onNewFile={(name, parentId) => handleNewItem("file", name, parentId)} 
+          onNewFolder={(name, parentId) => handleNewItem("folder", name, parentId)} 
+          onDeleteItem={handleDeleteItem} 
+          onRenameItem={workspace.renameItem} 
+          onMoveItem={workspace.moveItem} 
+          onUploadFiles={workspace.uploadFiles} 
+          onCopyItem={workspace.clipboard.copyItem} 
+          onCutItem={workspace.clipboard.cutItem} 
+          onPasteItem={workspace.clipboard.pasteItem} 
+          clipboard={workspace.clipboard.clipboard} 
+          onCollapseAll={workspace.collapseAll} 
+          activeFileId={tabManager.activeFileId} 
+          selectedNodeId={selectedNodeId}
+          lastSessionId={lastSessionId} 
+          setTreeData={workspace.setTreeData} 
+          treeData={workspace.treeData}
+          fileContents={workspace.fileContents}
+        />
 
-        {/* Project Creation Loading Overlay */}
-        {isCreatingProject && (
-          <div className="project-creation-overlay">
-            <div className="project-creation-content">
-              <div className="loading-spinner"></div>
-              <div className="loading-text">Creating Soroban Project...</div>
-              <div className="loading-subtext">Running: stellar contract init {newProjectName || "project"}</div>
-            </div>
+        {/* Project Creation Loading Overlay - Glass Blur */}
+        <div className={`project-creation-overlay ${isCreatingProject ? 'visible' : ""}`}>
+          <div className="project-creation-content">
+            <div className="loading-spinner"></div>
+            <div className="loading-text">Creating Soroban Project...</div>
+            <div className="loading-subtext">Running: stellar contract init {newProjectName || "project"}</div>
           </div>
-        )}
+        </div>
 
         <div className="workspace">
           <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--border-color)", background: "var(--tab-bg)" }}>

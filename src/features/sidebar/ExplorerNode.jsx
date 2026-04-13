@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useState, useRef } from "react";
 import { FileIconImg, FolderIconImg } from "../../components/icons/FileIcon";
 import { ChevronDown, ChevronRight } from "../../components/icons/ChevronIcons";
 import { sortNodes, findParentId, uniqueId } from "../workspace/workspaceUtils";
@@ -10,15 +10,16 @@ import RenameInput from "./RenameInput";
  * Renders a single file or folder with all its interactions.
  * Supports lazy-loading for large folders (node_modules, target).
  */
-const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder, onFileSelect, activeFileId, onSelectFolder, selectedFolderId, inlineInput, onInlineSubmit, onInlineCancel, onContextMenu, renameNode, onRenameSubmit, onRenameCancel, onMoveItem, onUploadFiles, dragState, setDragState, clipboard, folderUploadProgress, setFolderUploadProgress, lastSessionId, setTreeData }) => {
+const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder, onFileSelect, activeFileId, onNodeSelect, selectedNodeId, inlineInput, onInlineSubmit, onInlineCancel, onContextMenu, renameNode, onRenameSubmit, onRenameCancel, onMoveItem, onUploadFiles, dragState, setDragState, clipboard, folderUploadProgress, setFolderUploadProgress, lastSessionId, setTreeData }) => {
   const isFolder = node.type === "folder";
   const isExpanded = expandedFolders.has(node.id);
-  const isSelected = selectedFolderId === node.id;
+  const isSelected = selectedNodeId === node.id;
   const isRenaming = renameNode?.id === node.id;
   const isDragging = dragState?.draggingId === node.id;
   const isDragOver = dragState?.dragOverId === node.id;
   const isCut = clipboard?.nodeId === node.id && clipboard?.operation === "cut";
   const indent = depth * 8;
+  const dragExpandTimer = useRef(null);
 
   /**
    * Build the relative path for this node by walking up the tree.
@@ -54,22 +55,23 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
       const hasChildren = node.children?.length > 0;
       const isTargetedByInput = inlineInput?.parentId === node.id;
       
-      // Only allow toggling if it has children or is about to show an inline input
+      // Only toggle if it has children or is about to show an inline input
       if (hasChildren || isTargetedByInput) {
         onToggleFolder(node.id);
       }
-      onSelectFolder?.(node.id);
+      onNodeSelect?.(node.id);
     } else {
       onFileSelect(node.id);
+      onNodeSelect?.(node.id);
     }
-  }, [isFolder, node.children?.length, inlineInput?.parentId, node.id, onToggleFolder, onSelectFolder, onFileSelect]);
+  }, [isFolder, node.children?.length, inlineInput?.parentId, node.id, onToggleFolder, onNodeSelect, onFileSelect]);
 
-  // Automatically close folder if it becomes empty
+  // Cleanup drag expand timer on unmount
   React.useEffect(() => {
-    if (isFolder && isExpanded && node.children?.length === 0 && inlineInput?.parentId !== node.id) {
-      onToggleFolder(node.id);
-    }
-  }, [isFolder, isExpanded, node.children?.length, inlineInput?.parentId, node.id, onToggleFolder]);
+    return () => {
+      if (dragExpandTimer.current) clearTimeout(dragExpandTimer.current);
+    };
+  }, []);
 
   const handleContextMenuEvent = useCallback((e) => onContextMenu(e, node), [node, onContextMenu]);
 
@@ -102,13 +104,23 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
       e.dataTransfer.dropEffect = isExternal ? "copy" : "move";
 
       // Target resolution: if folder, target itself. If file, target parent.
-      const targetId = isFolder ? node.id : (findParentId(tree, node.id) || "root");
+      const targetId = isFolder ? node.id : (findParentId(tree, node.id) || tree[0]?.id);
       
       if (targetId && targetId !== dragState?.draggingId && targetId !== dragState?.dragOverId) {
         setDragState?.((prev) => ({ ...prev, dragOverId: targetId }));
       }
+
+      // Auto-expand folders after hovering 600ms while dragging
+      if (isFolder && !isExpanded && node.children?.length > 0 && targetId !== dragState?.draggingId) {
+        if (!dragExpandTimer.current) {
+          dragExpandTimer.current = setTimeout(() => {
+            onToggleFolder(node.id);
+            dragExpandTimer.current = null;
+          }, 600);
+        }
+      }
     },
-    [node.id, isFolder, tree, dragState?.draggingId, dragState?.dragOverId, setDragState],
+    [node.id, isFolder, isExpanded, node.children?.length, tree, dragState?.draggingId, dragState?.dragOverId, setDragState, onToggleFolder],
   );
 
   const handleDragLeave = useCallback(
@@ -121,6 +133,11 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
         if (dragState?.dragOverId === node.id) {
           setDragState?.((prev) => ({ ...prev, dragOverId: null }));
         }
+        // Cancel auto-expand timer
+        if (dragExpandTimer.current) {
+          clearTimeout(dragExpandTimer.current);
+          dragExpandTimer.current = null;
+        }
       }
     },
     [node.id, dragState?.dragOverId, setDragState],
@@ -131,7 +148,7 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
       e.preventDefault();
       e.stopPropagation();
 
-      const targetFolderId = isFolder ? node.id : (findParentId(tree, node.id) || "root");
+      const targetFolderId = isFolder ? node.id : (findParentId(tree, node.id) || tree[0]?.id);
 
       const isExternal = e.dataTransfer.types.includes("Files");
 
@@ -166,7 +183,7 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
       } else {
         // Handle internal move
         const draggedId = e.dataTransfer.getData("application/soroban-studio-node-id") || dragState?.draggingId;
-        const finalTargetId = targetFolderId === "root" ? tree[0]?.parentId || null : targetFolderId;
+        const finalTargetId = targetFolderId;
         
         if (draggedId && draggedId !== finalTargetId) {
           // Check if dragging onto current parent (no-op)
@@ -182,7 +199,7 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
     [node.id, isFolder, tree, onMoveItem, onUploadFiles, dragState?.draggingId, setDragState, setFolderUploadProgress],
   );
 
-  const isProtected = node.name === "src" || node.name === "Cargo.toml";
+  const isProtected = false; // Allow moving everything for now per user feedback
 
   const sharedProps = {
     onContextMenu: handleContextMenuEvent,
@@ -192,6 +209,13 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
     draggable: !isProtected,
     onDragStart: isProtected ? undefined : handleDragStart,
     onDragEnd: isProtected ? undefined : handleDragEnd,
+  };
+
+  // Drop-only props for container areas (no draggable, no dragStart)
+  const dropTargetProps = {
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
   };
 
   /* ─── Folder rendering ─── */
@@ -208,7 +232,7 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
           {isExpanded && (
             <div className="sidebar-children">
               {sortNodes(node.children)?.map((child) => (
-                <ExplorerNode key={child.id} node={child} depth={depth + 1} tree={tree} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} onFileSelect={onFileSelect} activeFileId={activeFileId} onSelectFolder={onSelectFolder} selectedFolderId={selectedFolderId} inlineInput={inlineInput} onInlineSubmit={onInlineSubmit} onInlineCancel={onInlineCancel} onContextMenu={onContextMenu} renameNode={renameNode} onRenameSubmit={onRenameSubmit} onRenameCancel={onRenameCancel} onMoveItem={onMoveItem} onUploadFiles={onUploadFiles} dragState={dragState} setDragState={setDragState} clipboard={clipboard} folderUploadProgress={folderUploadProgress} setFolderUploadProgress={setFolderUploadProgress} lastSessionId={lastSessionId} setTreeData={setTreeData} />
+                <ExplorerNode key={child.id} node={child} depth={depth + 1} tree={tree} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} onFileSelect={onFileSelect} activeFileId={activeFileId} onNodeSelect={onNodeSelect} selectedNodeId={selectedNodeId} inlineInput={inlineInput} onInlineSubmit={onInlineSubmit} onInlineCancel={onInlineCancel} onContextMenu={onContextMenu} renameNode={renameNode} onRenameSubmit={onRenameSubmit} onRenameCancel={onRenameCancel} onMoveItem={onMoveItem} onUploadFiles={onUploadFiles} dragState={dragState} setDragState={setDragState} clipboard={clipboard} folderUploadProgress={folderUploadProgress} setFolderUploadProgress={setFolderUploadProgress} lastSessionId={lastSessionId} setTreeData={setTreeData} />
               ))}
             </div>
           )}
@@ -263,8 +287,8 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
                   onToggleFolder={onToggleFolder}
                   onFileSelect={onFileSelect}
                   activeFileId={activeFileId}
-                  onSelectFolder={onSelectFolder}
-                  selectedFolderId={selectedFolderId}
+                  onNodeSelect={onNodeSelect}
+                  selectedNodeId={selectedNodeId}
                   inlineInput={inlineInput}
                   onInlineSubmit={onInlineSubmit}
                   onInlineCancel={onInlineCancel}
@@ -287,7 +311,7 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
               return (
                 <div 
                   className={`sidebar-children-content ${!hasChildren ? "empty-folder-drop-zone" : ""}`}
-                  {...sharedProps}
+                  {...dropTargetProps}
                 >
                   {inlineInput?.parentId === node.id && inlineInput.type === "folder" && (
                     <InlineInput type="folder" depth={depth + 1} onSubmit={onInlineSubmit} onCancel={onInlineCancel} defaultValue="newfolder" />
@@ -311,13 +335,16 @@ const ExplorerNode = memo(({ node, depth, tree, expandedFolders, onToggleFolder,
     return <RenameInput type="file" depth={depth} onSubmit={onRenameSubmit} onCancel={onRenameCancel} defaultValue={node.name} />;
   }
 
-  const fileClassName = ["sidebar-file", activeFileId === node.id && "active", isDragging && "dragging", isCut && "cut"].filter(Boolean).join(" ");
+  const fileClassName = ["sidebar-file", activeFileId === node.id && "active", isSelected && "selected", isDragging && "dragging", isCut && "cut"].filter(Boolean).join(" ");
 
   return (
     <button
       className={fileClassName}
       type="button"
-      onClick={() => onFileSelect(node.id)}
+      onClick={() => {
+        onFileSelect(node.id);
+        onNodeSelect?.(node.id);
+      }}
       style={{
         paddingLeft: `${indent + 32}px`,
       }}

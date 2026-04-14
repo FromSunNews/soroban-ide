@@ -31,11 +31,18 @@ export const resetSessionId = () => {
 };
 
 /**
- * Walk the workspace tree and collect all files into a flat
+ * Walk the workspace tree and collect all source files into a flat
  * { "relative/path": "content" } map for the backend.
+ * Skips images and other non-source binaries to keep payloads small.
  */
 export const collectProjectFiles = (treeData, fileContents) => {
   const files = {};
+  
+  // Only allow source-related extensions
+  const ALLOWED_EXTENSIONS = [
+    ".rs", ".toml", ".json", ".js", ".ts", ".md", ".txt", ".yaml", ".yml", ".wasm",
+    "LICENSE", "Makefile", "Cargo.lock"
+  ];
 
   const walk = (nodes, parentPath = "") => {
     for (const node of nodes) {
@@ -45,9 +52,20 @@ export const collectProjectFiles = (treeData, fileContents) => {
 
       if (node.type === "file") {
         const filePath = parentPath ? `${parentPath}/${node.name}` : node.name;
-        const content = fileContents[node.id];
-        if (content !== undefined) {
-          files[filePath] = content;
+        const ext = node.name.includes(".") ? node.name.toLowerCase().slice(node.name.lastIndexOf(".")) : node.name;
+        
+        // Filter: only include files that match common source extensions
+        const isAllowed = ALLOWED_EXTENSIONS.some(allowed => 
+          ext === allowed || node.name === allowed
+        );
+
+        if (isAllowed) {
+          const content = fileContents[node.id];
+          if (content !== undefined) {
+            files[filePath] = content;
+          }
+        } else {
+          console.warn(`[backendService] Skipping non-source file: ${filePath}`);
         }
       }
 

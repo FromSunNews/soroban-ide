@@ -232,6 +232,19 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
     }
   }, [isCollapsed, height]);
 
+  // Global toggle shortcut: Ctrl+J (or Cmd+J)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Support both Ctrl and Cmd for cross-platform convenience
+      if (e.key.toLowerCase() === "j" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [toggleCollapse]);
+
   /* ─── Keyboard handling ─── */
 
   const handleKeyDown = useCallback(
@@ -353,9 +366,9 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
               <div key={index} className={getLineClassName(entry)}>
                 {entry.type === "command" && (
                   <span className="terminal-prompt-line">
-                    <span className="terminal-prompt-user">user</span>
+                    <span className="terminal-prompt-user">soroban</span>
                     <span className="terminal-prompt-at">@</span>
-                    <span className="terminal-prompt-host">soroban</span>
+                    <span className="terminal-prompt-host">studio</span>
                     <span className="terminal-prompt-separator">:</span>
                     <span className="terminal-prompt-path">{entry.cwd || getShortPath(cwd)}</span>
                     <span className="terminal-prompt-symbol">$</span>
@@ -374,9 +387,9 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
             {!isRunning && (
               <div className="terminal-input-line">
                 <span className="terminal-prompt-line">
-                  <span className="terminal-prompt-user">user</span>
+                  <span className="terminal-prompt-user">soroban</span>
                   <span className="terminal-prompt-at">@</span>
-                  <span className="terminal-prompt-host">soroban</span>
+                  <span className="terminal-prompt-host">studio</span>
                   <span className="terminal-prompt-separator">:</span>
                   <span className="terminal-prompt-path">{getShortPath(cwd)}</span>
                   <span className="terminal-prompt-symbol">$</span>

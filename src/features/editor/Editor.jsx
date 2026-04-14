@@ -10,6 +10,14 @@ import PdfViewer from "./PdfViewer";
  * Auto-detects language from file extension.
  */
 const Editor = ({ fileId, filePath, content = "", onChange, onCursorChange }) => {
+  if (!fileId) {
+    return (
+      <div className="welcome-screen">
+        <img src="/assets/images/soroban.png" alt="Soroban Logo" className="welcome-logo" />
+      </div>
+    );
+  }
+
   const fileType = getFileType(filePath);
   // Auto-detect language from file name/extension
   const language = getLanguageFromName(filePath);

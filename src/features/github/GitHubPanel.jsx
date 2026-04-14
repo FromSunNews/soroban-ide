@@ -407,7 +407,7 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
                 className="github-form-input"
                 type="text"
                 value={newRepoName}
-                onChange={(e) => setNewRepoName(e.target.value)}
+                onChange={(e) => setNewRepoName(e.target.value.replace(/\s+/g, ""))}
                 placeholder="my-soroban-project"
                 autoFocus
               />

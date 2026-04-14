@@ -398,7 +398,7 @@ const Layout = () => {
           <div className="github-clone-dialog">
             <h3>Create New Soroban Project</h3>
             <div className="dialog-subtitle">Specify a name for your smart contract project.</div>
-            <input type="text" placeholder="e.g., hello-soroban" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleCreateProject()} autoFocus />
+            <input type="text" placeholder="e.g., hello-soroban" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value.replace(/\s+/g, ""))} onKeyDown={(e) => e.key === "Enter" && handleCreateProject()} autoFocus />
             <div className="dialog-buttons">
               <button className="btn-cancel" onClick={() => setShowCreateDialog(false)}>
                 Cancel

@@ -10,6 +10,17 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 /**
+ * Fetch a full project template (tree + contents) from the backend filesystem.
+ */
+export const fetchTemplate = async (name) => {
+  const response = await fetch(`${API_BASE}/templates?name=${name}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch template: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+/**
  * Get or create a persistent session ID stored in localStorage.
  * This ensures all commands share the same workspace on the backend,
  * even when frontend and backend are on different domains (cross-origin).
@@ -83,22 +94,22 @@ export const collectProjectFiles = (treeData, fileContents) => {
  * Submit project files + command to the backend for execution.
  * @param {Object} files - { "path/to/file": "content" }
  * @param {string} command - The exact CLI command to run (e.g. "stellar --version")
+ * @param {string} cwd - The working directory for the command
  * @returns {Promise<string>} session_id
  */
-export const submitCommand = async (files, command) => {
-  console.log("[backendService] Sending command:", command);
-  console.log("[backendService] Files:", Object.keys(files));
-
+export const submitCommand = async (files, command, cwd = "~/project") => {
   const sessionId = getSessionId();
-  console.log("[backendService] Session ID:", sessionId);
-
   const response = await fetch(`${API_BASE}/run`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Session-ID": sessionId,
     },
-    body: JSON.stringify({ files, command }),
+    body: JSON.stringify({
+      files,
+      command,
+      cwd,
+    }),
   });
 
   if (!response.ok) {
@@ -113,7 +124,7 @@ export const submitCommand = async (files, command) => {
   }
 
   const data = await response.json();
-  return data.session_id;
+  return { sessionId: data.session_id, jobId: data.job_id };
 };
 
 // Keep old name as alias for backward compatibility
@@ -129,15 +140,15 @@ export const submitBuild = (files) => submitCommand(files, "stellar contract bui
  * @param {function} callbacks.onDone    - called when command is complete
  * @returns {function} cleanup — call to close the WebSocket
  */
-export const connectBuildStream = (sessionId, { onMessage, onError, onDone, onClose }) => {
+export const connectBuildStream = (sessionId, jobId, { onMessage, onError, onDone, onClose }) => {
   let wsUrl;
+  const queryParams = `?session_id=${sessionId}${jobId ? `&job_id=${jobId}` : ""}`;
+  
   if (API_BASE.startsWith("http")) {
-    // If API_BASE is absolute (e.g. on Vercel), convert http/https to ws/wss
-    wsUrl = API_BASE.replace(/^http/, "ws") + `/ws?session_id=${sessionId}`;
+    wsUrl = API_BASE.replace(/^http/, "ws") + `/ws${queryParams}`;
   } else {
-    // If API_BASE is relative (e.g. in local dev), use current window host
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    wsUrl = `${protocol}//${window.location.host}${API_BASE}/ws?session_id=${sessionId}`;
+    wsUrl = `${protocol}//${window.location.host}${API_BASE}/ws${queryParams}`;
   }
 
   const ws = new WebSocket(wsUrl);
@@ -149,6 +160,13 @@ export const connectBuildStream = (sessionId, { onMessage, onError, onDone, onCl
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
+
+      // FILTER: Only process messages belonging to THIS job.
+      // This prevents init output from appearing in the terminal during build,
+      // and vice versa.
+      if (jobId && msg.job_id && msg.job_id !== jobId) {
+        return; // Silently ignore messages from other jobs
+      }
 
       // "done" signal means command is complete
       if (msg.type === "done") {

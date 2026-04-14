@@ -6,7 +6,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { loadState, saveStateSection, clearState } from "../../utils/storage";
 import { uniqueId, addNodeToTree, removeNodeFromTree, renameNodeInTree, moveNodeInTree, collectFileIds, collectAllIds, cloneNodeWithNewIds, collectContentsMap, flattenTree } from "./workspaceUtils";
-import { createDefaultWorkspace, createHelloWorldWorkspace, createBlankWorkspace, DEFAULT_TEMPLATES } from "./workspaceTemplates";
+import { createDefaultWorkspace, createBlankWorkspace } from "./workspaceTemplates";
 import { cloneRepository } from "../../services/githubService";
 
 /* ─── useWorkspaceState ─── */
@@ -48,7 +48,11 @@ export const useWorkspaceState = () => {
     (type, name, parentId) => {
       if (!name) return null;
       const targetParentId = parentId || rootId;
-      const newId = uniqueId();
+      
+      // Calculate a deterministic ID based on the parent's path (which is its ID)
+      // This ensures consistency with the backend scan IDs.
+      const newId = targetParentId === "root" ? name : `${targetParentId}/${name}`;
+      
       const newNode = { id: newId, name, type, children: [] };
 
       setTreeData((prev) => addNodeToTree(prev, targetParentId, newNode));
@@ -62,7 +66,7 @@ export const useWorkspaceState = () => {
       if (type === "file") {
         setFileContents((prev) => ({
           ...prev,
-          [newId]: DEFAULT_TEMPLATES[name] ?? `// ${name}\n`,
+          [newId]: `// ${name}\n`,
         }));
       }
 

@@ -1,8 +1,10 @@
 import React, { memo, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { loadState, saveStateSection, clearState } from "../utils/storage";
 import { executeTerminalCommand, isBackendCommand } from "../features/terminal/terminalCommands";
-import { collectProjectFiles, submitCommand, connectBuildStream } from "../services/backendService";
+import { collectProjectFiles, submitCommand, connectBuildStream, fetchTemplate, resetSessionId } from "../services/backendService";
 import { useWorkspaceState, useTabManager } from "../features/workspace/workspaceHooks";
+import { createDefaultWorkspace, createBlankWorkspace } from "../features/workspace/workspaceTemplates";
+import { cloneRepository } from "../services/githubService";
 import { FileIconImg, FolderIconImg } from "../components/icons/FileIcon";
 import { ChevronDown, ChevronRight } from "../components/icons/ChevronIcons";
 import { sortNodes, uniqueId, ensureTreeIds } from "../features/workspace/workspaceUtils";
@@ -29,9 +31,8 @@ const Layout = () => {
   const [cloneStatus, setCloneStatus] = useState(null);
   const [lastSessionId, setLastSessionId] = useState(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const initializationStartedRef = useRef(false);
   const createMenuRef = useRef(null);
   const setFileContentsRef = useRef(workspace.setFileContents);
   const previewTabIdRef = useRef(tabManager.previewTabId);
@@ -167,81 +168,48 @@ const Layout = () => {
   }, []);
 
   // Create project handlers
-  const handleOpenCreateProject = useCallback(() => {
-    setShowCreateDialog(true);
-    setShowCreateMenu(false);
-    setNewProjectName("");
-  }, []);
-
-  const handleCreateProject = useCallback(async (forcedName) => {
-    const name = forcedName || newProjectName.trim() || "my-soroban-project";
+  const handleCreateProject = useCallback(async (templateName = "hello-world") => {
     try {
       setIsCreatingProject(true);
-      setShowCreateDialog(false);
 
-      // We don't create locally anymore, we let the backend 'init' and send us the tree
-      // But we clear existing tabs/state for a fresh start
+      // Reset session to ensure a clean workspace on the backend
+      resetSessionId();
+
+      // Reset state for a fresh start
       tabManager.resetTabs();
-      workspace.setFileContents({});
-
-      // Run stellar contract init on backend
-      const sessionId = await submitCommand({}, `stellar contract init ${name}`);
-      setLastSessionId(sessionId);
-
-      // Connect specifically to this init session to get the resulting file tree
-      connectBuildStream(sessionId, {
-        onMessage: (msg) => {
-          if (msg.type === "fileTreeUpdate") {
-            try {
-              const rawTree = JSON.parse(msg.content);
-              handleFileTreeUpdate(rawTree);
-            } catch (e) {
-              console.error("Failed to parse file tree update:", e);
-            }
-          }
-        },
-        onDone: () => setIsCreatingProject(false),
-        onError: (err) => {
-          console.error("Init project error:", err);
-          setIsCreatingProject(false);
-        },
-      });
+      
+      // Initialize locally using the specified template from BACKEND filesystem
+      console.log(`[Layout] Fetching ${templateName} template from backend filesystem...`);
+      try {
+        const { tree, contents } = await fetchTemplate(templateName);
+        workspace.setTreeData(tree);
+        workspace.setFileContents(contents);
+      } catch (templateError) {
+        console.error(`Failed to fetch ${templateName} template from backend, falling back to local blank project:`, templateError);
+        const { tree, contents } = createBlankWorkspace();
+        workspace.setTreeData(tree);
+        workspace.setFileContents(contents);
+      }
+      
+      setIsCreatingProject(false);
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreatingProject(false);
     }
-  }, [newProjectName, workspace, tabManager]);
+  }, [workspace, tabManager]);
 
-  const handleFileTreeUpdate = useCallback(
-    (newTree) => {
-      const treeWithIds = ensureTreeIds(newTree);
-
-      // Extract contents from the tree to update workspace cache
-      const contents = {};
-      const extract = (nodes) => {
-        nodes.forEach((node) => {
-          if (node.type === "file" && node.content !== undefined) {
-            contents[node.id] = node.content;
-          }
-          if (node.children?.length) extract(node.children);
-        });
-      };
-      extract(treeWithIds);
-
-      if (Object.keys(contents).length > 0) {
-        workspace.setFileContents((prev) => ({ ...prev, ...contents }));
-      }
-
-      workspace.setTreeData(treeWithIds);
-      setIsCreatingProject(false);
-    },
-    [workspace],
-  );
+  const handleOpenCreateProject = useCallback(() => {
+    setShowCreateMenu(false);
+    handleCreateProject();
+  }, [handleCreateProject]);
 
   // Auto-trigger Create Project on first-time initialization
   useEffect(() => {
+    if (initializationStartedRef.current) return;
+    
     const state = loadState();
     if (!state?.workspace) {
+      initializationStartedRef.current = true;
       handleCreateProject("hello-world");
     }
   }, [handleCreateProject]);
@@ -307,7 +275,7 @@ const Layout = () => {
           <div className="project-creation-content">
             <div className="loading-spinner"></div>
             <div className="loading-text">Creating Soroban Project...</div>
-            <div className="loading-subtext">Running: stellar contract init {newProjectName || "project"}</div>
+            <div className="loading-subtext">Initializing template from backend...</div>
           </div>
         </div>
 
@@ -325,12 +293,19 @@ const Layout = () => {
               </button>
               {showCreateMenu && (
                 <div className="create-new-dropdown">
-                  <div className="create-new-item" onClick={handleOpenCreateProject}>
+                  <div className="create-new-item" onClick={() => { handleCreateProject("hello-world"); setShowCreateMenu(false); }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
-                    Create Project
+                    Create Hello World
+                  </div>
+                  <div className="create-new-item" onClick={() => { handleCreateProject("stellar-workshop"); setShowCreateMenu(false); }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Create Workshop Template
                   </div>
                   <div className="create-new-item" onClick={handleOpenGithubClone}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -347,7 +322,11 @@ const Layout = () => {
             <Editor fileId={tabManager.activeFileId} filePath={activeFile?.path} content={activeContent} language={language} onChange={handleEditorChange} onCursorChange={handleCursorChange} />
           </div>
 
-          <Terminal activeFileName={activeFile?.path} treeData={workspace.treeData} fileContents={workspace.fileContents} onFileTreeUpdate={handleFileTreeUpdate} />
+          <Terminal 
+            activeFileName={activeFile?.path} 
+            treeData={workspace.treeData} 
+            fileContents={workspace.fileContents} 
+          />
         </div>
       </div>
 
@@ -393,23 +372,6 @@ const Layout = () => {
         </div>
       )}
 
-      {showCreateDialog && (
-        <div className="github-clone-overlay">
-          <div className="github-clone-dialog">
-            <h3>Create New Soroban Project</h3>
-            <div className="dialog-subtitle">Specify a name for your smart contract project.</div>
-            <input type="text" placeholder="e.g., hello-soroban" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value.replace(/\s+/g, ""))} onKeyDown={(e) => e.key === "Enter" && handleCreateProject()} autoFocus />
-            <div className="dialog-buttons">
-              <button className="btn-cancel" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </button>
-              <button className="btn-clone" onClick={() => handleCreateProject()}>
-                Create Project
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

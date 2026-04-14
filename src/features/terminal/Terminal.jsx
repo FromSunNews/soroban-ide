@@ -11,7 +11,7 @@ const MAX_HEIGHT = 600;
 /**
  * Terminal panel with simulated shell + backend integration.
  */
-const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeData, fileContents, onFileTreeUpdate }) => {
+const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeData, fileContents }) => {
   const persistedState = useMemo(() => loadState()?.terminal, []);
 
   const [height, setHeight] = useState(() => persistedState?.height || DEFAULT_HEIGHT);
@@ -88,17 +88,12 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
         // Collect all project files from the workspace tree
         const files = collectProjectFiles(treeData || [], fileContents || {});
 
-        if (!files || Object.keys(files).length === 0) {
-          setHistory((prev) => [...prev, { type: "error", content: "❌ No files in workspace to send. Create a project first." }]);
-          setIsRunning(false);
-          return;
-        }
-
         // Submit to backend with the exact command the user typed
-        const sessionId = await submitCommand(files, cmd);
+        const { sessionId, jobId } = await submitCommand(files, cmd, cwd);
 
-        // Connect WebSocket for streaming output
-        wsCleanupRef.current = connectBuildStream(sessionId, {
+        // Connect WebSocket for streaming output — filtered by jobId
+        // so only output from THIS specific command appears in the terminal
+        wsCleanupRef.current = connectBuildStream(sessionId, jobId, {
           onMessage: (msg) => {
             console.log("[Terminal] WebSocket message received:", msg);
 
@@ -109,12 +104,15 @@ const Terminal = memo(({ activeFileName, currentDirectory = "~/project", treeDat
             const isDecorative = decorativePatterns.some((pattern) => pattern.test(msg.content));
             if (isDecorative) return;
 
-            if (msg.type === "fileTreeUpdate" && onFileTreeUpdate) {
-              try {
-                const tree = JSON.parse(msg.content);
-                onFileTreeUpdate(tree);
-              } catch (e) {
-                console.error("Failed to parse file tree update:", e);
+            // Explicitly ignore file tree updates in the terminal (No-Sync Architecture)
+            if (msg.type === "fileTreeUpdate") {
+              if (onFileTreeUpdate) {
+                try {
+                  const tree = JSON.parse(msg.content);
+                  onFileTreeUpdate(tree);
+                } catch (e) {
+                  console.error("Failed to parse file tree update:", e);
+                }
               }
               return;
             }

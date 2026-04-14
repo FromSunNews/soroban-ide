@@ -666,17 +666,18 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
 
               <div className={`sidebar-body ${dragOverBody ? "drag-over-external" : ""}`} onClick={handleBodyClick} onDragOver={handleBodyDragOver} onDragLeave={handleBodyDragLeave} onDrop={handleBodyDrop} onContextMenu={handleBodyContextMenu}>
                 {(() => {
+                  if (!root) return null;
                   const sortedChildren = sortNodes(root.children) || [];
-                  const folders = sortedChildren.filter((n) => n.type === "folder");
-                  const files = sortedChildren.filter((n) => n.type === "file");
+                  const folders = sortedChildren.filter((n) => n && n.type === "folder");
+                  const files = sortedChildren.filter((n) => n && n.type === "file");
 
                   const renderExplorerNode = (child) => <ExplorerNode key={child.id} node={child} depth={0} tree={tree} expandedFolders={expandedFolders} onToggleFolder={onToggleFolder} onFileSelect={onFileSelect} activeFileId={activeFileId} onNodeSelect={onNodeSelect} selectedNodeId={selectedNodeId} inlineInput={inlineInput} onInlineSubmit={handleInlineSubmit} onInlineCancel={handleInlineCancel} onContextMenu={handleContextMenu} renameNode={renameNode} onRenameSubmit={handleRenameSubmit} onRenameCancel={handleRenameCancel} onMoveItem={handleMoveItem} onUploadFiles={onUploadFiles} dragState={dragState} setDragState={setDragState} clipboard={clipboard} folderUploadProgress={folderUploadProgress} setFolderUploadProgress={setFolderUploadProgress} lastSessionId={lastSessionId} setTreeData={setTreeData} />;
 
                   return (
                     <>
-                      {inlineInput?.parentId === root.id && inlineInput.type === "folder" && <InlineInput type="folder" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfolder" />}
+                      {inlineInput && inlineInput.parentId === root.id && inlineInput.type === "folder" && <InlineInput type="folder" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfolder" />}
                       {folders.map(renderExplorerNode)}
-                      {inlineInput?.parentId === root.id && inlineInput.type === "file" && <InlineInput type="file" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfile" />}
+                      {inlineInput && inlineInput.parentId === root.id && inlineInput.type === "file" && <InlineInput type="file" depth={0} onSubmit={handleInlineSubmit} onCancel={handleInlineCancel} defaultValue="newfile" />}
                       {files.map(renderExplorerNode)}
                     </>
                   );

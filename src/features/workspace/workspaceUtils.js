@@ -184,20 +184,24 @@ export const flattenTree = (treeData) => {
 };
 
 /**
- * Recursively ensures all nodes in the tree have a unique ID.
- * Useful for trees returning from the backend without IDs.
+ * Recursively ensures all nodes in the tree have a unique, deterministic ID.
+ * Uses the relative path of the file/folder as the ID to ensure stability
+ * across backend updates and page refreshes.
  */
-export const ensureTreeIds = (nodes) => {
+export const ensureTreeIds = (nodes, parentPath = "") => {
   if (!nodes) return [];
   return nodes.map((node) => {
+    const path = parentPath ? `${parentPath}/${node.name}` : node.name;
     const newNode = {
       ...node,
-      id: node.id || uniqueId(),
+      // Use existing ID if present (e.g. from local creation), 
+      // otherwise use the stable path as the ID.
+      id: node.id || path,
     };
     if (newNode.children?.length) {
-      newNode.children = ensureTreeIds(newNode.children);
+      newNode.children = ensureTreeIds(newNode.children, path);
     } else {
-      newNode.children = [];
+      newNode.children = newNode.type === "folder" ? [] : undefined;
     }
     return newNode;
   });

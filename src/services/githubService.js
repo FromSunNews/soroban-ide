@@ -14,7 +14,10 @@ export const parseGithubUrl = (url) => {
   if (!url || typeof url !== "string") return null;
 
   // Clean up the URL first (remove trailing slashes, .git suffix)
-  let cleanUrl = url.trim().replace(/\/+$/, "").replace(/\.git$/, "");
+  let cleanUrl = url
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "");
 
   // Try to extract owner and repo from various formats
   // 1. Full HTTPS: https://github.com/owner/repo/...
@@ -103,15 +106,7 @@ const isBinaryFile = (filename) => {
   return ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "pdf", "zip", "tar", "gz", "exe", "dll"].includes(ext);
 };
 
-/**
- * Recursive function to build repository tree structure
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} path - Current path
- * @param {Function} uniqueId - ID generator function
- * @returns {Promise<{nodes: Array, contents: Object}>}
- */
-const buildRepoTreeRecursive = async (owner, repo, path, uniqueId) => {
+const buildRepoTreeRecursive = async (owner, repo, path) => {
   const nodes = [];
   const contents = {};
 
@@ -119,7 +114,7 @@ const buildRepoTreeRecursive = async (owner, repo, path, uniqueId) => {
     const items = await fetchRepoContents(owner, repo, path);
 
     for (const item of items) {
-      const nodeId = uniqueId();
+      const nodeId = item.path; // Use deterministic path as ID
 
       if (item.type === "file") {
         const binary = isBinaryFile(item.name);
@@ -143,7 +138,7 @@ const buildRepoTreeRecursive = async (owner, repo, path, uniqueId) => {
         }
       } else if (item.type === "dir") {
         // Recursively fetch directory contents
-        const { nodes: childNodes, contents: childContents } = await buildRepoTreeRecursive(owner, repo, item.path, uniqueId);
+        const { nodes: childNodes, contents: childContents } = await buildRepoTreeRecursive(owner, repo, item.path);
 
         nodes.push({
           id: nodeId,
@@ -168,13 +163,7 @@ const buildRepoTreeRecursive = async (owner, repo, path, uniqueId) => {
   return { nodes, contents };
 };
 
-/**
- * Main function to clone a GitHub repository
- * @param {string} githubUrl - GitHub repository URL
- * @param {Function} uniqueId - ID generator function
- * @returns {Promise<{tree: Array, contents: Object, repoName: string}>}
- */
-export const cloneRepository = async (githubUrl, uniqueId) => {
+export const cloneRepository = async (githubUrl) => {
   const parsed = parseGithubUrl(githubUrl);
   if (!parsed) {
     throw new Error("Invalid GitHub URL. Please use format: https://github.com/owner/repo");
@@ -182,7 +171,7 @@ export const cloneRepository = async (githubUrl, uniqueId) => {
 
   const { owner, repo } = parsed;
 
-  // Fetch repository info
+  // Fetch repository info to get the root name
   const repoInfoResponse = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
     headers: { Accept: "application/vnd.github.v3+json" },
   });
@@ -200,14 +189,14 @@ export const cloneRepository = async (githubUrl, uniqueId) => {
   const repoInfo = await repoInfoResponse.json();
 
   // Build tree structure
-  const { nodes, contents } = await buildRepoTreeRecursive(owner, repo, "", uniqueId);
+  const { nodes, contents } = await buildRepoTreeRecursive(owner, repo, "");
 
   // Create root node
-  const rootId = uniqueId();
+  const rootName = repoInfo.name || repo;
   const tree = [
     {
-      id: rootId,
-      name: repoInfo.name || repo,
+      id: rootName,
+      name: rootName,
       type: "folder",
       children: nodes,
     },

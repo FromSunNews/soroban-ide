@@ -61,6 +61,49 @@ const listFiles = (treeData, cwd) => {
 };
 
 /**
+ * Handle 'cd' command, updating the CWD state.
+ */
+const changeDirectory = (target, currentCwd, setCwd, treeData) => {
+  if (target === "~" || target === "~/project") {
+    setCwd("~/project");
+    return "";
+  }
+
+  // Handle '..'
+  if (target === "..") {
+    if (currentCwd === "~/project") return "";
+    const parts = currentCwd.split("/");
+    parts.pop();
+    setCwd(parts.join("/"));
+    return "";
+  }
+
+  // Handle relative paths
+  const root = treeData?.[0];
+  if (!root) return "cd: no project initialized";
+
+  const cwdRel = currentCwd.replace(/^~\/project\/?/, "");
+  const cwdParts = cwdRel.split("/").filter(Boolean);
+
+  // Find current node
+  let current = root;
+  for (const part of cwdParts) {
+    current = current.children?.find((c) => c.name === part);
+    if (!current) break;
+  }
+
+  if (!current) return `cd: cannot access directory`;
+
+  // Find target node in current
+  const targetNode = current.children?.find((c) => c.name === target && c.type === "folder");
+  if (!targetNode) return `cd: no such directory: ${target}`;
+
+  const newCwd = currentCwd === "~/project" ? `~/project/${target}` : `${currentCwd}/${target}`;
+  setCwd(newCwd);
+  return "";
+};
+
+/**
  * Execute a local terminal command.
  * @param {string} cmd - Full command string
  * @param {string} cwd - Current working directory
@@ -90,6 +133,10 @@ export const executeTerminalCommand = (cmd, cwd, setCwd, treeData) => {
         return listFiles(treeData, cwd);
       }
       return "";
+
+    case "cd":
+      const targetDir = args[0] || "~/project";
+      return changeDirectory(targetDir, cwd, setCwd, treeData);
 
     case "whoami":
       return "developer";

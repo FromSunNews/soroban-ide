@@ -34,10 +34,10 @@
 }
 
 .tab.active {
-  background: #000000;
+  background: var(--active-tab-bg);
   border-color: var(--border-color);
   color: var(--text-primary);
-  border-bottom: 1px solid #000000;
+  border-bottom: 1px solid var(--active-tab-bg);
   margin-bottom: -1px;
 }
 
@@ -58,7 +58,7 @@
   height: 18px;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text-muted);
   cursor: pointer;
   display: grid;
   place-items: center;

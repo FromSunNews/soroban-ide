@@ -3,7 +3,7 @@
 .terminal {
   height: 120px;
   border-top: 1px solid var(--border-color);
-  background: #1a1a1a;
+  background: var(--term-bg);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -40,7 +40,7 @@
 .terminal.collapsed .terminal-title-btn {
   padding: 8px 16px;
   margin: 0;
-  background: #1a1a1a;
+  background: var(--term-bg);
   border-radius: 4px 4px 0 0;
   border: 1px solid var(--border-color);
   border-bottom: none;
@@ -113,7 +113,7 @@
 
 .terminal-running-badge {
   font-size: 11px;
-  color: #c3e88d;
+  color: var(--term-path);
   animation: terminal-pulse 1.5s ease-in-out infinite;
 }
 
@@ -125,8 +125,8 @@
   font-family: "JetBrains Mono", "Fira Code", "SF Mono", Monaco, Consolas, monospace;
   font-size: 16px;
   overflow-y: auto;
-  background: #0d0d0d;
-  color: #e0e0e0;
+  background: var(--term-win-bg);
+  color: var(--term-fg);
   overscroll-behavior: none;
 }
 
@@ -161,28 +161,28 @@
 }
 
 .terminal-prompt-user {
-  color: #4fc1ff;
+  color: var(--term-user);
   font-weight: 500;
 }
 .terminal-prompt-at {
-  color: #e0e0e0;
+  color: var(--term-fg);
 }
 .terminal-prompt-host {
-  color: #89ddff;
+  color: var(--term-accent);
 }
 .terminal-prompt-separator {
-  color: #e0e0e0;
+  color: var(--term-fg);
 }
 .terminal-prompt-path {
-  color: #c3e88d;
+  color: var(--term-path);
   font-weight: 500;
 }
 .terminal-prompt-symbol {
-  color: #ff5370;
+  color: var(--term-symbol);
   margin: 0 6px;
 }
 .terminal-prompt-command {
-  color: #e0e0e0;
+  color: var(--term-fg);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -190,7 +190,7 @@
 .terminal-output {
   margin: 4px 0 8px 0;
   padding-left: 0;
-  color: #e0e0e0;
+  color: var(--term-fg);
   white-space: pre-wrap;
   word-break: break-all;
   font-family: inherit;
@@ -211,13 +211,13 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #e0e0e0;
+  color: var(--term-fg);
   font-family: inherit;
   font-size: inherit;
   padding: 0;
   margin: 0 0 0 6px;
   min-width: 50px;
-  caret-color: #4fc1ff;
+  caret-color: var(--term-user);
 }
 
 .terminal-input::placeholder {
@@ -227,16 +227,16 @@
 /* ─── Backend Integration Styles ─── */
 
 .terminal-error .terminal-output {
-  color: #ff5370;
+  color: var(--term-error);
 }
 
 .terminal-info .terminal-output {
-  color: #89ddff;
+  color: var(--term-info);
 }
 
 .terminal-running-badge {
   font-size: 11px;
-  color: #c3e88d;
+  color: var(--term-path);
   animation: terminal-pulse 1.5s ease-in-out infinite;
   margin-left: 8px;
 }
@@ -259,7 +259,7 @@
 /* ─── Links ─── */
 
 .terminal-link {
-  color: #4fc1ff;
+  color: var(--term-user);
   text-decoration: none;
   cursor: pointer;
 }
@@ -271,7 +271,7 @@
 /* ─── Compiling Animation ─── */
 
 .terminal-compiling-line {
-  color: #e0e0e0;
+  color: var(--term-fg);
   font-family: inherit;
   font-size: inherit;
   margin: 4px 0;

@@ -61,8 +61,18 @@
 }
 
 .activity-btn.active {
-  color: var(--text-secondary);
-  background: #000000;
+  color: var(--accent);
+  background: var(--active-bg);
+}
+
+.activity-btn.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--accent);
 }
 
 .sidebar-panel {
@@ -209,7 +219,7 @@
 /* ─── Workspace Root Node ─── */
 
 .sidebar-root-node {
-  background: rgba(255, 255, 255, 0.03) !important;
+  background: var(--hover-bg) !important;
   border-bottom: 1px solid var(--border-color) !important;
   height: 32px !important;
   margin-bottom: 4px;
@@ -219,7 +229,7 @@
 }
 
 .sidebar-root-node:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: var(--active-bg) !important;
 }
 
 .root-label {
@@ -311,13 +321,13 @@
 
 .sidebar-folder:hover,
 .sidebar-file:hover {
-  background: #0f0f0f;
+  background: var(--hover-bg);
   color: var(--text-primary);
 }
 
 .sidebar-folder.selected {
-  background: #141414;
-  color: #ffffff;
+  background: var(--active-bg);
+  color: var(--text-primary);
 }
 
 .sidebar-folder.drag-over {
@@ -326,8 +336,19 @@
 }
 
 .sidebar-file.active {
-  background: #000000;
-  color: var(--text-primary);
+  background: var(--active-bg);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.sidebar-file.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
 }
 
 .sidebar-file.dragging,
@@ -369,6 +390,24 @@
   height: 100%;
   max-width: 22px;
   max-height: 22px;
+}
+
+.soroban-docs-icon {
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.soroban-docs-icon:hover {
+  opacity: 0.9;
+}
+
+[data-theme="light"] .soroban-docs-icon {
+  filter: brightness(0); /* Force to black */
+}
+
+[data-theme="dark"] .soroban-docs-icon,
+[data-theme="midnight"] .soroban-docs-icon {
+  filter: brightness(0) invert(1); /* Force to white */
 }
 
 .sidebar-node-label {

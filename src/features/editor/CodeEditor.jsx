@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor";
 import "./editorConfig"; // Side-effect: configures Monaco theme + languages
 
-const CodeEditor = ({ fileId, filePath, content, language, onChange, onCursorChange }) => {
+const CodeEditor = ({ fileId, filePath, content, language, theme, onChange, onCursorChange }) => {
   const containerRef = useRef(null);
   const editorRef = useRef(null);
   const isUpdatingRef = useRef(false);
@@ -140,6 +140,13 @@ const CodeEditor = ({ fileId, filePath, content, language, onChange, onCursorCha
     editorRef.current.setModel(model);
     isUpdatingRef.current = false;
   }, [fileId, filePath, content, language]);
+
+  // Handle Theme changes
+  useEffect(() => {
+    if (!theme) return;
+    const monacoTheme = theme === "light" ? "vs" : theme === "midnight" ? "community-midnight" : "community-material";
+    monaco.editor.setTheme(monacoTheme);
+  }, [theme]);
 
   return <div className="editor-container" ref={containerRef} />;
 };

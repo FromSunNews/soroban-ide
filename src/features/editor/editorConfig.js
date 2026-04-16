@@ -202,6 +202,27 @@ export const configureMonaco = () => {
       return { suggestions };
     },
   });
+
+  // OLED Midnight Theme
+  monaco.editor.defineTheme("community-midnight", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "", foreground: "FFFFFF", background: "000000" },
+    ],
+    colors: {
+      "editor.background": "#000000",
+      "editor.foreground": "#ffffff",
+      "editorLineNumber.foreground": "#333333",
+      "editorLineNumber.activeForeground": "#ffffff",
+      "editor.selectionBackground": "#333333",
+      "editor.inactiveSelectionBackground": "#111111",
+      "editor.lineHighlightBackground": "#080808",
+      "editor.lineHighlightBorder": "#111111",
+      "editorGutter.background": "#000000",
+      "editorSuggestWidget.background": "#000000",
+    },
+  });
 };
 
 // Run configuration immediately on import

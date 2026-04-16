@@ -9,6 +9,7 @@ import GitHubPanel from "../github/GitHubPanel";
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 1200;
 const COLLAPSE_THRESHOLD = 120;
+import { Settings } from "lucide-react";
 
 const ActionButton = memo(({ icon, onClick, title }) => (
   <button className="sidebar-action" type="button" onClick={onClick} data-tooltip={title}>
@@ -19,7 +20,7 @@ const ActionButton = memo(({ icon, onClick, title }) => (
 /**
  * Sidebar component — contains file explorer, resize, collapse.
  */
-const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onNodeSelect, selectedNodeId, onNewFile, onNewFolder, onDeleteItem, onRenameItem, onMoveItem, onUploadFiles, onCopyItem, onCutItem, onPasteItem, clipboard, onCollapseAll, activeFileId, lastSessionId, setTreeData, treeData, fileContents }) => {
+const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onNodeSelect, selectedNodeId, onNewFile, onNewFolder, onDeleteItem, onRenameItem, onMoveItem, onUploadFiles, onCopyItem, onCutItem, onPasteItem, clipboard, onCollapseAll, activeFileId, lastSessionId, setTreeData, treeData, fileContents, isSettingsOpen, onToggleSettings }) => {
   const root = tree?.[0];
   const persistedSidebarState = useMemo(() => loadState()?.sidebar, []);
 
@@ -596,18 +597,21 @@ const Sidebar = memo(({ tree, expandedFolders, onToggleFolder, onFileSelect, onN
             <img
               src="/assets/images/soroban.png"
               alt="Docs"
+              className="soroban-docs-icon"
               style={{
                 width: "30px",
                 height: "30px",
-                filter: "brightness(0) invert(1)",
-                opacity: 0.27,
                 transition: "opacity 0.2s ease",
                 transform: "translateY(1px)",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.4")}
             />
           </button>
+
+          <div style={{ marginTop: "auto", width: "100%" }}>
+            <button className={`activity-btn ${isSettingsOpen ? "active" : ""}`} onClick={onToggleSettings} title="Settings">
+              <Settings size={22} />
+            </button>
+          </div>
         </div>
 
         {/* Collapsible Panel Section (Right of Activity Bar) */}

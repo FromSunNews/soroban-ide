@@ -9,7 +9,7 @@ import PdfViewer from "./PdfViewer";
  * based on file type (code, image, PDF).
  * Auto-detects language from file extension.
  */
-const Editor = ({ fileId, filePath, content = "", onChange, onCursorChange }) => {
+const Editor = ({ fileId, filePath, content = "", theme, onChange, onCursorChange }) => {
   if (!fileId) {
     return (
       <div className="welcome-screen">
@@ -30,7 +30,7 @@ const Editor = ({ fileId, filePath, content = "", onChange, onCursorChange }) =>
     return <PdfViewer filePath={filePath} content={content} />;
   }
 
-  return <CodeEditor fileId={fileId} filePath={filePath} content={content} language={language} onChange={onChange} onCursorChange={onCursorChange} />;
+  return <CodeEditor fileId={fileId} filePath={filePath} content={content} language={language} theme={theme} onChange={onChange} onCursorChange={onCursorChange} />;
 };
 
 export default Editor;

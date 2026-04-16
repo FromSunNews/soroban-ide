@@ -144,7 +144,11 @@ const CodeEditor = ({ fileId, filePath, content, language, theme, onChange, onCu
   // Handle Theme changes
   useEffect(() => {
     if (!theme) return;
-    const monacoTheme = theme === "light" ? "vs" : theme === "midnight" ? "community-midnight" : "community-material";
+    const monacoTheme = 
+      theme === "light" ? "vs" : 
+      theme === "midnight" ? "community-midnight" : 
+      theme === "solarized-light" ? "community-solarized" :
+      "community-material";
     monaco.editor.setTheme(monacoTheme);
   }, [theme]);
 

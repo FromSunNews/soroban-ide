@@ -162,5 +162,5 @@
 .preview-midnight .preview-sidebar { background: #000000; }
 .preview-midnight .preview-editor { background: #080808; }
 
-.preview-monochrome .preview-sidebar { background: #121212; }
-.preview-monochrome .preview-editor { background: #1a1a1a; }
+.preview-solarized-light .preview-sidebar { background: #eee8d5; }
+.preview-solarized-light .preview-editor { background: #fdf6e3; }

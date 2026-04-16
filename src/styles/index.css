@@ -124,6 +124,43 @@
   --term-muted: #555555;
 }
 
+[data-theme="solarized-light"] {
+  --main-bg: #fdf6e3;
+  --sidebar-bg: #eee8d5;
+  --explorer-bg: #fdf6e3;
+  --tab-bg: #e4dec9;
+  --active-tab-bg: #fdf6e3;
+  --border-color: #d5ceba;
+  --text-primary: #586e75;
+  --text-secondary: #657b83;
+  --text-muted: #93a1a1;
+  --hover-bg: #eee8d5;
+  --active-bg: #dce1cc;
+  --accent: #859900;
+  --accent-hover: #b58900;
+  --status-bar-bg: #eee8d5;
+  --status-bar-text: #586e75;
+  
+  --editor-bg: #fdf6e3;
+  --editor-fg: #586e75;
+  --editor-line-highlight: #eee8d5;
+  --editor-selection: #dce1cc;
+  
+  /* Terminal Tokens */
+  --term-bg: #fdf6e3;
+  --term-win-bg: #eee8d5;
+  --term-fg: #657b83;
+  --term-user: #268bd2;
+  --term-path: #859900;
+  --term-symbol: #d33682;
+  --term-accent: #b58900;
+  --term-error: #dc322f;
+  --term-info: #2aa198;
+  --term-muted: #93a1a1;
+  
+  --sidebar-resize-handle: #268bd2;
+}
+
 /* ─── Reset ─── */
 
 * {

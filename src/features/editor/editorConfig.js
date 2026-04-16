@@ -223,6 +223,38 @@ export const configureMonaco = () => {
       "editorSuggestWidget.background": "#000000",
     },
   });
+
+  // Solarized Light Theme
+  monaco.editor.defineTheme("community-solarized", {
+    base: "vs",
+    inherit: true,
+    rules: [
+      { token: "", foreground: "586e75", background: "fdf6e3" },
+      { token: "keyword", foreground: "859900", fontStyle: "bold" }, // Green instead of Cyan
+      { token: "variable", foreground: "657b83" }, // Neutral instead of Blue
+      { token: "function", foreground: "b58900" }, // Yellow
+      { token: "string", foreground: "d33682" }, // Magenta
+      { token: "number", foreground: "6c71c4" }, // Violet
+      { token: "constant", foreground: "cb4b16" }, // Orange
+      { token: "comment", foreground: "93a1a1", fontStyle: "italic" },
+      { token: "type", foreground: "cb4b16" }, // Orange
+      { token: "class", foreground: "cb4b16" },
+      { token: "tag", foreground: "859900" },
+    ],
+    colors: {
+      "editor.background": "#fdf6e3",
+      "editor.foreground": "#586e75",
+      "editorLineNumber.foreground": "#93a1a1",
+      "editorLineNumber.activeForeground": "#586e75",
+      "editor.selectionBackground": "#eee8d5",
+      "editor.inactiveSelectionBackground": "#eee8d5",
+      "editor.lineHighlightBackground": "#eee8d5",
+      "editor.lineHighlightBorder": "#d5ceba",
+      "editorGutter.background": "#eee8d5",
+      "editorSuggestWidget.background": "#fdf6e3",
+      "editorSuggestWidget.border": "#d5ceba",
+    },
+  });
 };
 
 // Run configuration immediately on import

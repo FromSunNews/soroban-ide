@@ -19,6 +19,7 @@ const SettingsPanel = ({ currentTheme, onThemeChange, onClose }) => {
     { id: "dark", name: "Community Dark", class: "preview-dark" },
     { id: "midnight", name: "Midnight OLED", class: "preview-midnight" },
     { id: "light", name: "Modern Light", class: "preview-light" },
+    { id: "solarized-light", name: "Solarized Light", class: "preview-solarized-light" },
   ];
 
   const renderAppearance = () => (

@@ -112,6 +112,79 @@
   flex-shrink: 0;
 }
 
+/* ─── Global Button System ─── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--border-color);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--active-bg);
+  border-color: var(--text-secondary);
+}
+
+.btn-text {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+}
+
+.btn-text:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-lg {
+  height: 38px;
+  padding: 0 20px;
+}
+
+.btn-sm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--font-size-xs);
+}
+
 /* ─── Create New Menu ─── */
 
 .create-new-container {
@@ -248,45 +321,15 @@
 .github-clone-dialog .dialog-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.github-clone-dialog button {
-  padding: 4px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 2px;
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition: background 0.1s;
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.github-clone-dialog button:hover {
-  background: var(--hover-bg);
-}
-
-.github-clone-dialog .btn-clone {
-  background: var(--accent);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.github-clone-dialog .btn-clone:hover {
-  background: var(--accent-hover);
-  border-color: var(--text-muted);
-}
-
-.github-clone-dialog .btn-clone:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .github-clone-dialog .clone-status {
   margin: 0 0 12px 0;
   padding: 6px 8px;
   font-size: var(--font-size-sm);
+  border-radius: 4px;
 }
 
 .github-clone-dialog .clone-status.loading {

@@ -386,10 +386,10 @@ const Layout = () => {
             />
             {cloneStatus && <div className={`clone-status ${cloneStatus.type}`}>{cloneStatus.message}</div>}
             <div className="dialog-buttons">
-              <button className="btn-cancel" onClick={() => setShowGithubClone(false)}>
+              <button className="btn btn-secondary" onClick={() => setShowGithubClone(false)}>
                 Cancel
               </button>
-              <button className="btn-clone" onClick={handleCloneGithub} disabled={cloneStatus?.type === "loading"}>
+              <button className="btn btn-primary" onClick={handleCloneGithub} disabled={cloneStatus?.type === "loading"}>
                 Clone
               </button>
             </div>

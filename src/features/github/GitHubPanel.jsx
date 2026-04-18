@@ -241,7 +241,7 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
             </p>
 
             {!isLoggingIn ? (
-              <button className="github-login-btn" onClick={handleLogin}>
+              <button className="btn btn-primary" onClick={handleLogin}>
                 {renderGithubIcon()}
                 <span>Sign in with GitHub</span>
               </button>
@@ -268,7 +268,7 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
                   <div className="loading-spinner small" />
                   <span>Waiting for authorization...</span>
                 </div>
-                <button className="github-cancel-btn" onClick={handleCancelLogin}>
+                <button className="btn btn-secondary btn-block" onClick={handleCancelLogin} style={{ marginTop: "12px" }}>
                   Cancel
                 </button>
               </div>
@@ -293,7 +293,7 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
       <div className="sidebar-header">
         <div className="sidebar-title">GitHub</div>
         <div className="sidebar-actions">
-          <button className="github-logout-btn" onClick={handleLogout} title="Disconnect">
+          <button className="btn-text btn-sm" onClick={handleLogout} title="Disconnect">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
@@ -392,12 +392,13 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
         {activeView === "create" && !isPushing && (
           <div className="github-create-form">
             <button
-              className="github-back-btn"
+              className="btn btn-text"
               onClick={() => {
                 setActiveView("main");
                 setPushError(null);
                 setPushResult(null);
               }}
+              style={{ padding: "0", marginBottom: "8px" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6" />
@@ -432,9 +433,10 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
 
 
             <button
-              className="github-push-btn"
+              className="btn btn-primary btn-block btn-lg"
               disabled={!newRepoName.trim()}
               onClick={handleCreateRepo}
+              style={{ marginTop: "8px" }}
             >
               Create & Push
             </button>
@@ -445,12 +447,13 @@ const GitHubPanel = memo(({ treeData, fileContents }) => {
         {activeView === "existing" && !isPushing && (
           <div className="github-existing-form">
             <button
-              className="github-back-btn"
+              className="btn btn-text"
               onClick={() => {
                 setActiveView("main");
                 setPushError(null);
                 setPushResult(null);
               }}
+              style={{ padding: "0", marginBottom: "8px" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6" />

@@ -49,31 +49,6 @@
   line-height: 1.5;
 }
 
-.github-login-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 20px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: #212121;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  margin-top: 8px;
-}
-
-.github-login-btn:hover {
-  background: #2f363d;
-  border-color: #444d56;
-}
-
-.github-login-btn svg {
-  width: 18px;
-  height: 18px;
-}
 
 /* ─── Device Flow ─── */
 
@@ -180,21 +155,6 @@
   border-width: 2px;
 }
 
-.github-cancel-btn {
-  padding: 4px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.github-cancel-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
-}
 
 /* ─── User Card ─── */
 
@@ -325,23 +285,6 @@
   overflow: hidden;
 }
 
-.github-back-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  transition: color 0.15s;
-  align-self: flex-start;
-}
-
-.github-back-btn:hover {
-  color: var(--text-primary);
-}
 
 .github-form-group {
   display: flex;
@@ -390,29 +333,6 @@
   accent-color: var(--accent);
 }
 
-.github-push-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border: 1px solid var(--border-color);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.github-push-btn:hover {
-  background: var(--accent-hover);
-  border-color: var(--text-muted);
-}
-
-.github-push-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  color: var(--text-muted);
-}
 
 /* ─── Repo List ─── */
 

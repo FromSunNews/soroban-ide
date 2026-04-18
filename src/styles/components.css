@@ -88,11 +88,11 @@
 }
 
 .context-menu-item.delete {
-  color: #f87171;
+  color: var(--text-primary);
 }
 
 .context-menu-item.delete:hover {
-  background: #3f1f1f;
+  background: var(--active-bg);
 }
 
 .context-menu-item.disabled {
@@ -289,7 +289,8 @@
 }
 
 .github-clone-dialog .clone-status.error {
-  color: #f44336;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 /* ─── Status Bar ─── */
@@ -339,8 +340,8 @@
   top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(-4px);
-  background: #1e1e1e;
-  color: #ffffff;
+  background: var(--tab-bg);
+  color: var(--text-primary);
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 11px;

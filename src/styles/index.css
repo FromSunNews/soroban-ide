@@ -1,47 +1,47 @@
 /* ─── Design Tokens ─── */
 
 :root {
-  /* Default: Community Material Theme - Darker */
-  --main-bg: #0d0d0d;
-  --sidebar-bg: #0d0d0d;
-  --explorer-bg: #0d0d0d;
-  --tab-bg: #141414;
-  --active-tab-bg: #0d0d0d;
-  --border-color: #1a1a1a;
-  --text-primary: #f0f0f0;
-  --text-secondary: #b0b0b0;
-  --text-muted: #505050;
-  --hover-bg: #141414;
-  --active-bg: #1a1a1a;
+  /* Default: Pure Monochromatic Theme */
+  --main-bg: #0a0a0c;
+  --sidebar-bg: #0a0a0c;
+  --explorer-bg: #0a0a0c;
+  --tab-bg: #111113;
+  --active-tab-bg: #0a0a0c;
+  --border-color: #1a1a1c;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --hover-bg: #18181b;
+  --active-bg: #27272a;
   --accent: #ffffff;
-  --accent-hover: #ffffff;
-  --status-bar-bg: #0d0d0d;
-  --status-bar-text: #808080;
-  --error: #cf6679;
-  --warning: #ffb74d;
-  --info: #808080;
-  --success: #808080;
+  --accent-hover: #e4e4e7;
+  --status-bar-bg: #0a0a0c;
+  --status-bar-text: #71717a;
+  --error: #ffffff;   /* Pure white for visibility */
+  --warning: #a1a1aa; /* Light gray */
+  --info: #71717a;
+  --success: #e4e4e7;
 
   /* Editor Colors */
-  --editor-bg: #1a1a1a;
-  --editor-fg: #e0e0e0;
-  --editor-line-highlight: #212121;
-  --editor-selection: #3d3d3d;
+  --editor-bg: #0a0a0c;
+  --editor-fg: #f4f4f5;
+  --editor-line-highlight: #18181b;
+  --editor-selection: #3f3f46;
   
-  /* Terminal Tokens */
-  --term-bg: #1a1a1a;
-  --term-win-bg: #0d0d0d;
-  --term-fg: #e0e0e0;
-  --term-user: #4fc1ff;
-  --term-path: #c3e88d;
-  --term-symbol: #ff5370;
-  --term-accent: #89ddff;
-  --term-error: #ff5370;
-  --term-info: #89ddff;
-  --term-muted: #616161;
+  /* Terminal Tokens - Monochromatic Grayscale */
+  --term-bg: #0a0a0c;
+  --term-win-bg: #000000;
+  --term-fg: #f4f4f5;
+  --term-user: #ffffff;
+  --term-path: #a1a1aa;
+  --term-symbol: #d4d4d8;
+  --term-accent: #ffffff;
+  --term-error: #ffffff;
+  --term-info: #a1a1aa;
+  --term-muted: #52525b;
 
   /* Sidebar resize */
-  --sidebar-resize-handle: #82aaff;
+  --sidebar-resize-handle: #27272a;
 
   /* UI Dimensions */
   --header-height: 48px;
@@ -64,29 +64,29 @@
   --text-muted: #6a737d;
   --hover-bg: #f6f8fa;
   --active-bg: #ebf0f4;
-  --accent: #1a1a1a;
-  --accent-hover: #000000;
+  --accent: #000000;
+  --accent-hover: #333333;
   --status-bar-bg: #f8f9fa;
   --status-bar-text: #24292e;
   
   --editor-bg: #ffffff;
-  --editor-fg: #333333;
+  --editor-fg: #111111;
   --editor-line-highlight: #f0f0f0;
-  --editor-selection: #add6ff;
+  --editor-selection: #e1e4e8;
   
-  /* Terminal Tokens - Monochrome Light */
+  /* Terminal Tokens - Monochromatic Light */
   --term-bg: #ffffff;
   --term-win-bg: #ffffff;
   --term-fg: #1a1a1a;
   --term-user: #000000;
   --term-path: #4a4a4a;
   --term-symbol: #000000;
-  --term-accent: #24292e;
-  --term-error: #d73a49;
-  --term-info: #586069;
+  --term-accent: #333333;
+  --term-error: #000000;
+  --term-info: #6a737d;
   --term-muted: #959da5;
   
-  --sidebar-resize-handle: #007acc;
+  --sidebar-resize-handle: #e1e4e8;
 }
 
 [data-theme="midnight"] {
@@ -98,67 +98,68 @@
   --border-color: #111111;
   --text-primary: #ffffff;
   --text-secondary: #aaaaaa;
-  --text-muted: #444444;
+  --text-muted: #333333;
   --hover-bg: #0d0d0d;
   --active-bg: #1a1a1a;
   --accent: #ffffff;
-  --accent-hover: #ffffff;
+  --accent-hover: #cccccc;
   --status-bar-bg: #000000;
-  --status-bar-text: #888888;
+  --status-bar-text: #666666;
   
   --editor-bg: #000000;
   --editor-fg: #ffffff;
   --editor-line-highlight: #080808;
   --editor-selection: #1a1a1a;
   
-  /* Terminal Tokens - Pure OLED Black */
+  /* Terminal Tokens - OLED Monochrome */
   --term-bg: #000000;
   --term-win-bg: #000000;
   --term-fg: #ffffff;
-  --term-user: #00aaff;
-  --term-path: #00ff88;
-  --term-symbol: #ff0044;
-  --term-accent: #00ddee;
-  --term-error: #ff0044;
-  --term-info: #00ddee;
-  --term-muted: #555555;
+  --term-user: #ffffff;
+  --term-path: #888888;
+  --term-symbol: #ffffff;
+  --term-accent: #aaaaaa;
+  --term-error: #ffffff;
+  --term-info: #aaaaaa;
+  --term-muted: #444444;
 }
 
+/* Solarized Light is now Monochrome Warm Gray */
 [data-theme="solarized-light"] {
-  --main-bg: #fdf6e3;
-  --sidebar-bg: #eee8d5;
-  --explorer-bg: #fdf6e3;
-  --tab-bg: #e4dec9;
-  --active-tab-bg: #fdf6e3;
-  --border-color: #d5ceba;
-  --text-primary: #586e75;
-  --text-secondary: #657b83;
-  --text-muted: #93a1a1;
-  --hover-bg: #eee8d5;
-  --active-bg: #dce1cc;
-  --accent: #859900;
-  --accent-hover: #b58900;
-  --status-bar-bg: #eee8d5;
-  --status-bar-text: #586e75;
+  --main-bg: #f5f5f5;
+  --sidebar-bg: #e5e5e5;
+  --explorer-bg: #f5f5f5;
+  --tab-bg: #d4d4d4;
+  --active-tab-bg: #f5f5f5;
+  --border-color: #a1a1aa;
+  --text-primary: #27272a;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --hover-bg: #e5e5e5;
+  --active-bg: #d4d4d4;
+  --accent: #18181b;
+  --accent-hover: #000000;
+  --status-bar-bg: #e5e5e5;
+  --status-bar-text: #52525b;
   
-  --editor-bg: #fdf6e3;
-  --editor-fg: #586e75;
-  --editor-line-highlight: #eee8d5;
-  --editor-selection: #dce1cc;
+  --editor-bg: #f5f5f5;
+  --editor-fg: #27272a;
+  --editor-line-highlight: #e5e5e5;
+  --editor-selection: #d4d4d4;
   
   /* Terminal Tokens */
-  --term-bg: #fdf6e3;
-  --term-win-bg: #eee8d5;
-  --term-fg: #657b83;
-  --term-user: #268bd2;
-  --term-path: #859900;
-  --term-symbol: #d33682;
-  --term-accent: #b58900;
-  --term-error: #dc322f;
-  --term-info: #2aa198;
-  --term-muted: #93a1a1;
+  --term-bg: #f5f5f5;
+  --term-win-bg: #e5e5e5;
+  --term-fg: #27272a;
+  --term-user: #18181b;
+  --term-path: #52525b;
+  --term-symbol: #18181b;
+  --term-accent: #18181b;
+  --term-error: #000000;
+  --term-info: #52525b;
+  --term-muted: #71717a;
   
-  --sidebar-resize-handle: #268bd2;
+  --sidebar-resize-handle: #a1a1aa;
 }
 
 /* ─── Reset ─── */
@@ -171,17 +172,17 @@ body {
   margin: 0;
   min-height: 100vh;
   background: var(--main-bg);
-  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, Monaco, monospace;
+  font-family: "Inter", "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, Monaco, monospace;
   color: var(--text-primary);
   font-size: var(--font-size-base);
   overscroll-behavior: none;
 }
 
-/* ─── Scrollbar ─── */
+/* ─── Scrollbar - Monochrome ─── */
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -189,39 +190,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
-  border-radius: 5px;
+  background: var(--border-color);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--text-muted);
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-/* ─── Animations ─── */
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ─── Layout Components ─── */
@@ -232,5 +209,5 @@ body {
   align-items: center;
   border-bottom: 1px solid var(--border-color);
   background: var(--tab-bg);
-  overflow: visible; /* Fixed: changed from hidden to allow dropdowns to show */
+  overflow: visible;
 }

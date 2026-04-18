@@ -221,7 +221,7 @@
 }
 
 .terminal-input::placeholder {
-  color: #616161;
+  color: var(--term-muted);
 }
 
 /* ─── Backend Integration Styles ─── */

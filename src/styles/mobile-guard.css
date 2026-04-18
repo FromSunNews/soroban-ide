@@ -1,0 +1,92 @@
+.mobile-guard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #0a0a0c;
+  z-index: 9999;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #fff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* Glassmorphism card */
+.mobile-guard-container {
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 3rem 2rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-guard-icon {
+  width: 180px;
+  height: 180px;
+  margin-bottom: 2rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.05));
+}
+
+.mobile-guard-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.mobile-guard-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #a1a1aa;
+  margin-bottom: 2rem;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Show only on small screens */
+@media screen and (max-width: 1023px) {
+  .mobile-guard-overlay {
+    display: flex;
+  }
+  
+  /* Hide the rest of the app for accessibility and layout stability */
+  body {
+    overflow: hidden;
+  }
+}
+
+/* Subtle background glow */
+.mobile-guard-overlay::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}

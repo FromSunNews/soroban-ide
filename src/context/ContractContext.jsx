@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { isConnected, getAddress } from "@stellar/freighter-api";
+import { isFreighterConnected, getFreighterAddress } from "../services/freighter";
 
 const ContractContext = createContext(null);
 
@@ -13,8 +13,8 @@ export const ContractProvider = ({ children }) => {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        if (await isConnected()) {
-          const { address } = await getAddress();
+        if (await isFreighterConnected()) {
+          const { address } = await getFreighterAddress();
           if (address) setWalletAddress(address);
         }
       } catch (err) {
@@ -27,10 +27,19 @@ export const ContractProvider = ({ children }) => {
   const connectWallet = useCallback(async () => {
     try {
       setError(null);
-      if (!(await isConnected())) {
-        throw new Error("Freighter wallet not found. Please install the extension.");
+      const connected = await isFreighterConnected();
+      console.log("Attempting to connect... isConnected:", connected);
+      
+      if (!connected) {
+        // If isConnected is false, but we can't be 100% sure it's not installed, 
+        // we'll try to check if the global object exists at least.
+        const hasApi = (typeof window !== "undefined") && (window.freighterApi || window.stellarPirate);
+        if (!hasApi) {
+          throw new Error("Freighter wallet not found. Please install the extension.");
+        }
+        console.log("API found but isConnected was false. Proceeding to getAddress to trigger popup.");
       }
-      const { address, error: freighterError } = await getAddress();
+      const { address, error: freighterError } = await getFreighterAddress();
       if (freighterError) throw new Error(freighterError);
       if (address) {
         setWalletAddress(address);

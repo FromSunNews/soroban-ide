@@ -52,7 +52,7 @@
 .tab.active {
   background: var(--active-tab-bg);
   border: none;
-  border-top: 2px solid var(--text-muted);
+  border-top: 4px solid var(--accent);
   color: var(--text-primary);
   z-index: 10;
   outline: none;

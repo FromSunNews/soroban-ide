@@ -20,4 +20,5 @@
   flex-direction: column;
   background: var(--main-bg);
   min-width: 0; /* Important: allow container to shrink below content size */
+  position: relative; /* Coordinate system for floating terminal */
 }

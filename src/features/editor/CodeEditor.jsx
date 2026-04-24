@@ -15,6 +15,31 @@ const CodeEditor = ({ fileId, filePath, content, language, theme, onChange, onCu
     onCursorChangeRef.current = onCursorChange;
   }, [onChange, onCursorChange]);
 
+  // Handle external code insertion (e.g., from AI Panel)
+  useEffect(() => {
+    const handleInsert = (e) => {
+      const { code } = e.detail;
+      if (editorRef.current && code) {
+        const selection = editorRef.current.getSelection();
+        // If selection is empty, getPosition() returns the cursor position
+        // executeEdits handles both ranges (replacement) and positions (insertion)
+        const range = selection || editorRef.current.getPosition();
+        
+        editorRef.current.executeEdits("ai-insert", [
+          {
+            range: range,
+            text: code,
+            forceMoveMarkers: true,
+          },
+        ]);
+        editorRef.current.focus();
+      }
+    };
+
+    window.addEventListener("soroban:insertCode", handleInsert);
+    return () => window.removeEventListener("soroban:insertCode", handleInsert);
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
     if (!editorRef.current) {

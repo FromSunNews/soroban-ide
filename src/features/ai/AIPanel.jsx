@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, memo, useMemo, useLayoutEffect } from "react";
-import { Sparkles, X, ArrowUp, User, Bot, MessageSquare, Plus, Copy, Check, ArrowDown } from "lucide-react";
+import { Sparkles, X, ArrowUp, User, Bot, MessageSquare, Plus, Copy, Check, ArrowDown, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -15,6 +15,25 @@ const CodeBlock = memo(({ children, className, ...props }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || "");
   const code = String(children).replace(/\n$/, "");
+  
+  // Detect if it's inline (no language and no newline)
+  const isInline = !match && !code.includes("\n");
+  
+  if (isInline) {
+    return <code className={className} {...props}>{children}</code>;
+  }
+
+  // Determine if we should use the "Full Template" (header with Copy/Paste)
+  // We use it for programming languages or blocks longer than 2 lines.
+  const lang = match ? match[1].toLowerCase() : "";
+  const isProgrammingLang = [
+    "rust", "rs", "javascript", "js", "typescript", "ts", "json", "toml", "yaml", "yml", 
+    "python", "py", "cpp", "c", "h", "css", "html", "sql", "solidity", "sol", "go", "move"
+  ].includes(lang);
+  
+  const lineCount = code.split("\n").length;
+  const isLong = lineCount > 2;
+  const useTemplate = isProgrammingLang || isLong;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -22,14 +41,42 @@ const CodeBlock = memo(({ children, className, ...props }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handlePaste = () => {
+    window.dispatchEvent(new CustomEvent("soroban:insertCode", { detail: { code } }));
+  };
+
+  if (!useTemplate) {
+    return (
+      <div className="ai-simple-code-block">
+        <SyntaxHighlighter
+          style={vscDarkPlus}
+          language={match ? match[1] : "text"}
+          PreTag="div"
+          className="ai-syntax-highlighter"
+          {...props}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    );
+  }
+
   return (
     <div className="ai-code-block-container">
       <div className="ai-code-block-header">
-        <span className="ai-code-lang">{match ? match[1] : "code"}</span>
-        <button className="ai-copy-btn" onClick={handleCopy}>
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-          <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
+        <div className="ai-code-header-left">
+          <span className="ai-code-lang">{match ? match[1] : "code"}</span>
+        </div>
+        <div className="ai-code-header-actions">
+          <button className="ai-code-action-btn" onClick={handlePaste} title="Insert into Editor">
+            <FileText size={14} />
+            <span>Paste</span>
+          </button>
+          <button className="ai-code-action-btn" onClick={handleCopy} title="Copy to Clipboard">
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </button>
+        </div>
       </div>
       <SyntaxHighlighter
         style={vscDarkPlus}

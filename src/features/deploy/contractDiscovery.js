@@ -182,41 +182,24 @@ function rootPrefixFor(cargoTomlId, path) {
  * Resolve the on-disk wasm path the backend will produce after
  * `stellar contract build --manifest-path <path>/Cargo.toml`.
  *
- * Logic:
- *  - Walk up the contract's path looking for an ancestor `Cargo.toml`
- *    that declares `[workspace]`. If found, cargo puts the built wasm in
- *    that ancestor's `target/` directory (workspace-shared target).
- *  - Otherwise, cargo puts it inside the contract's own `target/` dir.
+ * The soroban-ide-runner container sets `CARGO_TARGET_DIR=/app/target`
+ * globally in its Dockerfile, which forces cargo to write every build
+ * artifact — for every contract in every workspace — into the single
+ * shared `/app/target/` directory. So the resolved wasm path is always:
  *
- * The returned path is prefixed with `/app` (the Docker mount).
+ *   <mountPrefix>/target/<targetTriple>/release/<crateName>.wasm
+ *
+ * We keep `fileContents` in the signature for forward compatibility with
+ * a future runner that doesn't override CARGO_TARGET_DIR, where we'd
+ * need to detect workspace roots vs standalone contracts to pick the
+ * right per-crate target/.
  */
-export function resolveWasmPath(selectedContract, fileContents = {}, options = {}) {
+export function resolveWasmPath(selectedContract, _fileContents = {}, options = {}) {
   if (!selectedContract || !selectedContract.crateName) return null;
   const mountPrefix = options.mountPrefix || MOUNT_PREFIX;
   const targetTriple = options.targetTriple || WASM_TARGET_TRIPLE;
-
-  const { path, crateName, cargoTomlId } = selectedContract;
-  const rootPrefix = rootPrefixFor(cargoTomlId, path);
-  const parts = path ? path.split("/").filter(Boolean) : [];
-
-  const buildCargoId = (rel) => {
-    if (!rel) return rootPrefix ? `${rootPrefix}/Cargo.toml` : `Cargo.toml`;
-    return rootPrefix ? `${rootPrefix}/${rel}/Cargo.toml` : `${rel}/Cargo.toml`;
-  };
-
-  // Walk from closest ancestor (parent) up to the workspace root.
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const ancestorRel = parts.slice(0, i).join("/");
-    const ancestorContent = fileContents[buildCargoId(ancestorRel)];
-    if (ancestorContent && isWorkspaceManifest(ancestorContent)) {
-      const base = ancestorRel ? `${mountPrefix}/${ancestorRel}` : mountPrefix;
-      return `${base}/target/${targetTriple}/release/${crateName}.wasm`;
-    }
-  }
-
-  // No workspace ancestor — cargo writes into the contract's own target dir.
-  const base = path ? `${mountPrefix}/${path}` : mountPrefix;
-  return `${base}/target/${targetTriple}/release/${crateName}.wasm`;
+  const { crateName } = selectedContract;
+  return `${mountPrefix}/target/${targetTriple}/release/${crateName}.wasm`;
 }
 
 /**

@@ -48,7 +48,9 @@ const Section = ({ icon, title, children, defaultOpen = false, badge }) => {
         {badge && <span style={{ marginLeft: 8 }}>{badge}</span>}
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
-      {open && <div className="deploy-section-body">{children}</div>}
+      <div className={`deploy-section-content ${open ? "open" : ""}`}>
+        <div className="deploy-section-body">{children}</div>
+      </div>
     </div>
   );
 };

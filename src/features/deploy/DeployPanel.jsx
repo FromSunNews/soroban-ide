@@ -135,6 +135,8 @@ const DeployPanel = ({ treeData, fileContents }) => {
   const [presetsByPath, setPresetsByPath] = useState(() => loadDeployPresets());
   const [invokeCasesByPath, setInvokeCasesByPath] = useState(() => loadInvokeCases());
   const [copiedId, setCopiedId] = useState(null);
+  const [copiedDefault, setCopiedDefault] = useState(false);
+  const [copiedFreighter, setCopiedFreighter] = useState(false);
   // Invoke state is scoped by contract ID so each deployed contract has
   // its own independent test surface — essential once multiple contracts
   // show up in the Deployed Contracts list at the same time.
@@ -315,15 +317,15 @@ const DeployPanel = ({ treeData, fileContents }) => {
   // Reset compile/deploy status when the contract folder name changes
   // (e.g. after a rename). The compiled .wasm filename is derived from
   // the folder name, so the old build artifact no longer matches.
-  const prevContractNameRef = useRef(contractFolderName());
+  const prevContractNameRef = useRef(selectedContract?.name);
   useEffect(() => {
-    const current = contractFolderName();
+    const current = selectedContract?.name;
     if (prevContractNameRef.current && current && current !== prevContractNameRef.current) {
       setCompileStatus(null);
       setDeployStatus(null);
     }
     prevContractNameRef.current = current;
-  }, [contractFolderName]);
+  }, [selectedContract?.name]);
 
   // ─── Wallet ───────────────────────────────────────────────────────────────
 
